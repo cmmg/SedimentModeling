@@ -30,8 +30,12 @@ namespace phaseField1
       // values(1)=0.0; //mu
 
       values(0)=-0.75;
-      values(1)=-1;   
-      if (std::sqrt(p.square())<0.05) {values(0)=0.01;  values(1)=1.0;}
+      values(1)=-1.0;
+      //values(2)=0;
+      if (std::sqrt(p.square())<10.0) {
+	//values(0)=-0.75; //-0.25;
+	values(1)=1.0;
+      }
 
       
       
@@ -173,25 +177,24 @@ namespace phaseField1
 	for (unsigned int i=0; i<dofs_per_cell; ++i){
 	  if (std::abs(UGhost(local_dof_indices[i]))<1.0e-16){ULocal[i]=0.0;}
 	  else{ULocal[i]=UGhost(local_dof_indices[i]);}
+	  // std::cout<<" "<< ULocal[i].val(); //<<std::endl;
 	  ULocal[i].diff (i, dofs_per_cell);
 	  ULocalConv[i]= UnGhost(local_dof_indices[i]);
 	}
-	//
-	dealii::Table<1,double> c_conv(n_q_points);
-	dealii::Table<1,double> phi_conv(n_q_points);
-	
+
 	//setup residual vector
 	Table<1, Sacado::Fad::DFad<double> > R(dofs_per_cell); 
 	for (unsigned int i=0; i<dofs_per_cell; ++i) {R[i]=0.0;}
 	
 	//populate residual vector 
-	residualForChemo(fe_values, 0, fe_face_values, cell, dt, ULocal, ULocalConv, R, currentTime, totalTime, c_conv, phi_conv);
+	residualForChemo(fe_values, 0, fe_face_values, cell, dt, ULocal, ULocalConv, R, currentTime, totalTime);
 	
 	//evaluate Residual(R) and Jacobian(R')
 	for (unsigned int i=0; i<dofs_per_cell; ++i) {
 	  for (unsigned int j=0; j<dofs_per_cell; ++j){
 	    // R' by AD
-	    local_matrix(i,j)= R[i].fastAccessDx(j);
+	    //local_matrix(i,j)= R[i].fastAccessDx(j);
+	    local_matrix(i,j)= R[i].dx(j);
 	  }
 	  //R
 	  local_rhs(i) = -R[i].val();
@@ -200,6 +203,8 @@ namespace phaseField1
       }
     system_matrix.compress (VectorOperation::add);
     system_rhs.compress (VectorOperation::add);
+    //pcout << "\nK norm is: " << system_matrix.frobenius_norm() << std::endl; 
+
   }
   
 
@@ -246,7 +251,7 @@ namespace phaseField1
     currentIteration=0;
     char buffer[200];
     while (true){
-      if (currentIteration>=20){sprintf(buffer, "maximum number of iterations reached without convergence. \n"); pcout<<buffer; break; exit (1);}
+      if (currentIteration>=25){sprintf(buffer, "maximum number of iterations reached without convergence. \n"); pcout<<buffer; break;exit (1);}
       if (current_norm>1/std::pow(tol,2)){sprintf(buffer, "\n norm is too high. \n\n"); pcout<<buffer; break; exit (1);}
       assemble_system();
       current_norm=system_rhs.l2_norm();
@@ -305,6 +310,7 @@ namespace phaseField1
   void phaseField<dim>::run (){
     //setup problem geometry and mesh
     GridGenerator::hyper_cube (triangulation, -problemWidth/2.0, problemWidth/2.0, true);
+    //  GridGenerator::hyper_cube (triangulation, -10/2.0, 10/2.0, true);
     triangulation.refine_global (refinementFactor);
     setup_system ();
     pcout << "   Number of active cells:       "

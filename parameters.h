@@ -1,6 +1,6 @@
 //problem geometry, mesh control
 #define DIMS 2
-#define problemWidth 1.0
+#define problemWidth 500.0
 #define refinementFactor 6
 
 //phase field properties
@@ -9,20 +9,21 @@
 #define Mobility 1.0
 
 //time step controls
-#define TimeStep 5.0e-2
-#define TotalTime 100*TimeStep
+#define TimeStep 0.4
+#define TotalTime 1000*TimeStep
 
 //output controls
 #define outputFileName "solution"
 
 //solidifcation parameters
-#define D 1.0
-#define lam 1.5957
+#define scaleLambda 1.0
+#define D 1.0*scaleLambda
+#define lam 1.5957*scaleLambda
 #define newdFdC 1*(phi[q]- lam*c[q] + lam*c[q]*phi[q]*phi[q])*(1-phi[q]*phi[q])
-#define W0 1.0
+#define W0 10.0
 #define epm 0.05
 #define mm 4.0
 #define theta0 0.125
-#define tau0 1000.0
+#define tau0 1.0
 
 
