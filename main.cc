@@ -21,19 +21,19 @@ namespace phaseField1
   template <int dim>
   class InitalConditions: public Function<dim>{
   public:
-    InitalConditions (): Function<dim>(3){std::srand(5);}
+    InitalConditions (): Function<dim>(2){std::srand(5);}
     void vector_value (const Point<dim>   &p, Vector<double>   &values) const{
-        Assert (values.size() == 3, ExcDimensionMismatch (values.size(), 3));
+        Assert (values.size() == 2, ExcDimensionMismatch (values.size(), 2));
 
       // values(0)=0.63 + 0.02*(0.5 -(double)(std::rand() % 100 )/100.0); //c
       //values(0)=0.02 + 0.02*(0.5 -(double)(std::rand() % 100 )/100.0);
       // values(1)=0.0; //mu
 
       values(0)=-0.75;
-      values(1)=-1.0;
+      values(1)=-1;
       //values(2)=0;
-      if (std::sqrt(p.square())<10.0) {
-	//values(0)=-0.75; //-0.25;
+      if (std::sqrt(p.square())<20) {
+	//values(0)=0.25; //-0.25;
 	values(1)=1.0;
       }
 
@@ -83,7 +83,7 @@ namespace phaseField1
                    typename Triangulation<dim>::MeshSmoothing
                    (Triangulation<dim>::smoothing_on_refinement |
                     Triangulation<dim>::smoothing_on_coarsening)),
-    fe(FE_Q<dim>(1),3),
+    fe(FE_Q<dim>(1),2),
     dof_handler (triangulation),
     pcout (std::cout, (Utilities::MPI::this_mpi_process(mpi_communicator)== 0)),
     computing_timer (mpi_communicator, pcout, TimerOutput::summary, TimerOutput::wall_times){
@@ -97,7 +97,7 @@ namespace phaseField1
      nodal_solution_names.push_back("phi"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
     
-    nodal_solution_names.push_back("mu"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+     //   nodal_solution_names.push_back("mu"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
  
   }
@@ -207,13 +207,13 @@ namespace phaseField1
 
   }
   
-
+  
   //Solve
   template <int dim>
-  void phaseField<dim>::solveIteration(){
+ void phaseField<dim>::solveIteration(){
     TimerOutput::Scope t(computing_timer, "solve");
     LA::MPI::Vector completely_distributed_solution (locally_owned_dofs, mpi_communicator);
-    /*    
+    /*      
     //Iterative solvers from Petsc and Trilinos
     SolverControl solver_control (dof_handler.n_dofs(), 1e-12);
 #ifdef USE_PETSC_LA
@@ -234,6 +234,8 @@ namespace phaseField1
           << " iterations." << std::endl;
     */
     //Direct solver MUMPS
+
+    
     SolverControl cn;
     PETScWrappers::SparseDirectMUMPS solver(cn, mpi_communicator);
     solver.set_symmetric_mode(false);
@@ -243,6 +245,31 @@ namespace phaseField1
     dU = completely_distributed_solution; 
   }
 
+
+  /* template <int dim>
+  void phaseField<dim>::solveIteration ()
+  {
+    TimerOutput::Scope t(computing_timer, "solve");
+    PETScWrappers::MPI::Vector
+      completely_distributed_solution (locally_owned_dofs,mpi_communicator);
+    //distributed_incremental_displacement = incremental_displacement;
+    SolverControl           solver_control (dof_handler.n_dofs(),
+                                            1e-16*system_rhs.l2_norm());
+    PETScWrappers::SolverGMRES cg (solver_control,
+                                mpi_communicator);
+    PETScWrappers::PreconditionBlockJacobi preconditioner(system_matrix);
+    cg.solve (system_matrix,  completely_distributed_solution, system_rhs,
+              preconditioner);
+    constraints.distribute (completely_distributed_solution);
+    locally_relevant_solution = completely_distributed_solution;
+    dU = completely_distributed_solution;
+    pcout << "   Solved in " << solver_control.last_step()
+          << " iterations." << std::endl;
+  }
+
+  */
+
+  
   //Solve
   template <int dim>
   void phaseField<dim>::solve(){

@@ -9,21 +9,24 @@
 #define Mobility 1.0
 
 //time step controls
-#define TimeStep 0.4
-#define TotalTime 1000*TimeStep
+#define TimeStep 0.04
+#define TotalTime 25000*TimeStep
 
 //output controls
 #define outputFileName "solution"
 
-//solidifcation parameters
-#define scaleLambda 1.0
-#define D 1.0*scaleLambda
-#define lam 1.5957*scaleLambda
-#define newdFdC 1*(phi[q]- lam*c[q] + lam*c[q]*phi[q]*phi[q])*(1-phi[q]*phi[q])
-#define W0 10.0
-#define epm 0.05
-#define mm 4.0
-#define theta0 0.125
+//solidifcation kobayashi parameters 
+
+#define D 1.0
+
 #define tau0 1.0
+#define W0 1.0
+#define mm 4.0
+#define em 0.05
+#define theta0 0.125 
+#define lam  D*tau0/W0/W0/0.6267
 
-
+//#define L 3333.33
+//#define tau0 1.0/L   // (1/L) where L = 3333.33
+//#define KK 2.0
+//#define amplitude 0.01
