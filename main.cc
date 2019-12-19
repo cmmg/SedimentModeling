@@ -29,7 +29,7 @@ namespace phaseField1
       //values(0)=0.02 + 0.02*(0.5 -(double)(std::rand() % 100 )/100.0);
       // values(1)=0.0; //mu
 	double radii=5.0;
-	values(0)=-0.75;
+	values(0)=-0.95;
        
 	double dist= sqrt(p[0]*p[0]+p[1]*p[1])-radii;
 	values(1)= -std::tanh(dist/sqrt(2.0)) ;       
@@ -327,14 +327,116 @@ namespace phaseField1
     }
   }
 
+
+
+  //Adaptive grid refinement
+  template <int dim>
+  void phaseField<dim>::refine_grid () {
+    TimerOutput::Scope t(computing_timer, "adaptiveRefinement");
+    const QGauss<dim>  quadrature_formula(FEOrder+2);
+    FEValues<dim> fe_values (fe, quadrature_formula,
+                             update_values    |  update_gradients |
+                             update_quadrature_points);
+    unsigned int dofs_per_cell= fe_values.dofs_per_cell;
+    unsigned int n_q_points= fe_values.n_quadrature_points;
+
+
+    /*
+    char buffer[200];
+    sprintf(buffer, "laser source at: (%7.3e, %7.3e,%7.3e)\n",laserLocationX,laserLocationY,laserLocationZ);
+    pcout << buffer;
+    */
+
+    std::vector<Vector<double> > quadSolutions;
+    for (unsigned int q=0; q<n_q_points; ++q){
+      quadSolutions.push_back(dealii::Vector<double>(2)); //2 since there are two degree of freedom per cell
+    }
+
+    bool checkForFurtherRefinement=true;
+    while (checkForFurtherRefinement) { 
+      bool isMeshRefined=false;
+      typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
+      typename parallel::distributed::Triangulation<dim>::active_cell_iterator t_cell = triangulation.begin_active();
+      for (;cell!=endc; ++cell) {
+	if (cell->is_locally_owned()) {
+	  fe_values.reinit (cell);
+	  fe_values.get_function_values(UnGhost, quadSolutions);
+	  
+	  //limit the maximal and minimal refinement depth of the mesh
+	  unsigned int current_level = t_cell->level();
+	  
+	  // Mark qPoins where refinement is to be done using bool.
+	  bool mark_refine = false, mark_refine_solute=false;
+	     for (unsigned int q=0; q<n_q_points; ++q) {
+	       Point<dim> qPoint=fe_values.quadrature_point(q);	       
+	       if (quadSolutions[q][1]>-0.9) {
+		 mark_refine = true;
+	       }
+	           
+	     }
+	   
+	   
+	     if ( (mark_refine /*&& mark_refine_solute*/ && (current_level < (maxRefinementLevel)))){
+	    cell->set_refine_flag(); isMeshRefined=true; //refine
+	  }
+	  else if ( (mark_refine && (current_level < maxRefinementLevel))){
+	    cell->set_refine_flag(); isMeshRefined=true; //refine
+	  }
+	  else if (!mark_refine && (current_level > minRefinementLevel)) {
+	    cell->set_coarsen_flag(); isMeshRefined=true; //coarsen previously refined
+	  }
+	}
+	++t_cell;
+      }
+      
+      //check for blocking in MPI
+      double checkSum=0.0;
+      if (isMeshRefined){checkSum=1.0;}
+      checkSum= Utilities::MPI::sum(checkSum, mpi_communicator); //checkSum is greater then 0, then all processors call adative refinement shown below
+      //
+      if (checkSum>0.0){
+	//execute refinement
+	parallel::distributed::SolutionTransfer<dim, LA::MPI::Vector> soltrans(dof_handler);
+	
+	// prepare the triangulation,
+	triangulation.prepare_coarsening_and_refinement();
+	
+	// prepare the SolutionTransfer object for coarsening and refinement
+	// and give the solution vector that we intend to interpolate later,
+	soltrans.prepare_for_coarsening_and_refinement(UnGhost);
+	
+	// actually execute the refinement,
+	triangulation.execute_coarsening_and_refinement ();
+	
+	//reset dof's, vectors, matrices, constraints, etc. all on the new mesh.
+	setup_system();
+	
+	// and interpolate all the solutions on the new mesh from the old mesh solution
+	soltrans.interpolate(Un);
+	U=Un; UGhost=U; UnGhost=Un;
+	UGhost.update_ghost_values();
+	UnGhost.update_ghost_values();
+	//set flag for another check of refinement
+	checkForFurtherRefinement=false;
+      }
+      else{
+	checkForFurtherRefinement=false;
+      }
+    }
+  }
+
+  
   //Solve problem
   template <int dim>
   void phaseField<dim>::run (){
     //setup problem geometry and mesh
     GridGenerator::hyper_cube (triangulation, -problemWidth/2.0, problemWidth/2.0, true);
     //  GridGenerator::hyper_cube (triangulation, -10/2.0, 10/2.0, true);
-    triangulation.refine_global (refinementFactor);
-    setup_system ();
+    triangulation.refine_global (globalRefinementFactor);
+    setup_system (); //inital set up
+    refine_grid(); //adative refinement
+    
+    
     pcout << "   Number of active cells:       "
 	  << triangulation.n_global_active_cells()
 	  << std::endl
@@ -357,6 +459,7 @@ namespace phaseField1
       int NSTEP=(currentTime/dt);
       if (NSTEP%PSTEPS==0) output_results(currentIncrement);
       pcout << std::endl;
+      refine_grid(); //adative refinement
     }
     //computing_timer.print_summary ();
   }
