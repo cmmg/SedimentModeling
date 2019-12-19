@@ -28,16 +28,11 @@ namespace phaseField1
       // values(0)=0.63 + 0.02*(0.5 -(double)(std::rand() % 100 )/100.0); //c
       //values(0)=0.02 + 0.02*(0.5 -(double)(std::rand() % 100 )/100.0);
       // values(1)=0.0; //mu
-
-      values(0)=-0.75;
-      values(1)=-1;
-      //values(2)=0;
-      if (std::sqrt(p.square())<20) {
-	//values(0)=0.25; //-0.25;
-	values(1)=1.0;
-      }
-
-      
+	double radii=5.0;
+	values(0)=-0.75;
+       
+	double dist= sqrt(p[0]*p[0]+p[1]*p[1])-radii;
+	values(1)= -std::tanh(dist/sqrt(2.0)) ;       
       
     }
   };
@@ -359,7 +354,8 @@ namespace phaseField1
     for (currentTime=0; currentTime<totalTime; currentTime+=dt){
       currentIncrement++;
       solve();
-      output_results(currentIncrement);
+      int NSTEP=(currentTime/dt);
+      if (NSTEP%PSTEPS==0) output_results(currentIncrement);
       pcout << std::endl;
     }
     //computing_timer.print_summary ();

@@ -1,7 +1,7 @@
 //problem geometry, mesh control
 #define DIMS 2
 #define problemWidth 500.0
-#define refinementFactor 6
+#define refinementFactor 8
 
 //phase field properties
 #define InterfaceEnergyParameter {1.0e-2, 1.0e-2, 1.0e-2} //{Kx, Ky, Kz}
@@ -10,7 +10,8 @@
 
 //time step controls
 #define TimeStep 0.04
-#define TotalTime 25000*TimeStep
+#define TotalTime 35000*TimeStep
+#define PSTEPS 1000 
 
 //output controls
 #define outputFileName "solution"
