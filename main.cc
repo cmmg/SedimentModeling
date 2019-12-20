@@ -29,7 +29,7 @@ namespace phaseField1
       //values(0)=0.02 + 0.02*(0.5 -(double)(std::rand() % 100 )/100.0);
       // values(1)=0.0; //mu
 	double radii=5.0;
-	values(0)=-0.95;
+	values(0)=-0.75;
        
 	double dist= sqrt(p[0]*p[0]+p[1]*p[1])-radii;
 	values(1)= -std::tanh(dist/sqrt(2.0)) ;       
@@ -369,7 +369,7 @@ namespace phaseField1
 	  bool mark_refine = false, mark_refine_solute=false;
 	     for (unsigned int q=0; q<n_q_points; ++q) {
 	       Point<dim> qPoint=fe_values.quadrature_point(q);	       
-	       if (quadSolutions[q][1]>-0.9) {
+	       if (quadSolutions[q][1]>-0.9 && quadSolutions[q][1]<0.9) {
 		 mark_refine = true;
 	       }
 	           
