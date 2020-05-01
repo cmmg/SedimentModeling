@@ -202,7 +202,8 @@ namespace phaseField1
 
   }
   
-  
+
+  /*
   //Solve
   template <int dim>
  void phaseField<dim>::solveIteration(){
@@ -230,7 +231,7 @@ namespace phaseField1
     */
     //Direct solver MUMPS
 
-    
+    /*  
     SolverControl cn;
     PETScWrappers::SparseDirectMUMPS solver(cn, mpi_communicator);
     solver.set_symmetric_mode(false);
@@ -239,9 +240,10 @@ namespace phaseField1
     locally_relevant_solution = completely_distributed_solution;
     dU = completely_distributed_solution; 
   }
+    */
 
-
-  /* template <int dim>
+  
+   template <int dim>
   void phaseField<dim>::solveIteration ()
   {
     TimerOutput::Scope t(computing_timer, "solve");
@@ -262,7 +264,7 @@ namespace phaseField1
           << " iterations." << std::endl;
   }
 
-  */
+  
 
   
   //Solve
