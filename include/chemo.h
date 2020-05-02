@@ -132,8 +132,8 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
       */
 
       double  angle  = std::atan2(eta_j[q][1].val(), eta_j[q][0].val());      
-      gamma = gamma0*(1+ em*std::cos(mm*(angle-theta0))) ;
-      Sacado::Fad::DFad<double> gammaprime = -gamma0*em*mm*std::sin(mm*(angle-theta0)) ;		   		   
+      gamma = gamma0*(1+ em*std::cos(mm*(angle-angle0))) ;
+      Sacado::Fad::DFad<double> gammaprime = -gamma0*em*mm*std::sin(mm*(angle-angle0)) ;		   		   
       bigM[0]=gamma*gamma*eta_j[q][0] - gamma*gammaprime*eta_j[q][1] ;
       bigM[1]=gamma*gamma*eta_j[q][1] + gamma*gammaprime*eta_j[q][0] ;
       
