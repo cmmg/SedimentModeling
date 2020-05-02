@@ -21,18 +21,13 @@ namespace phaseField1
   template <int dim>
   class InitalConditions: public Function<dim>{
   public:
-    InitalConditions (): Function<dim>(2){std::srand(5);}
+    InitalConditions (): Function<dim>(3){std::srand(5);}
     void vector_value (const Point<dim>   &p, Vector<double>   &values) const{
-        Assert (values.size() == 2, ExcDimensionMismatch (values.size(), 2));
-
-      // values(0)=0.63 + 0.02*(0.5 -(double)(std::rand() % 100 )/100.0); //c
-      //values(0)=0.02 + 0.02*(0.5 -(double)(std::rand() % 100 )/100.0);
-      // values(1)=0.0; //mu
-	double radii=5.0;
-	values(0)=-0.75;
-       
-	double dist= sqrt(p[0]*p[0]+p[1]*p[1])-radii;
-	values(1)= -std::tanh(dist/sqrt(2.0)) ;       
+        Assert (values.size() == 3, ExcDimensionMismatch (values.size(), 3));	
+	values(0)=0;	      
+	double dist= (sqrt(p[0]*p[0]+p[1]*p[1]) - problemWidth/4.0)/4.0;
+	values(1)= 0.5*(1-std::tanh(dist)) ;
+	values(2)=0.082*16/(problemWidth/4.0) + 3.0*dist*dist-2*dist*dist*dist;
       
     }
   };
@@ -78,7 +73,7 @@ namespace phaseField1
                    typename Triangulation<dim>::MeshSmoothing
                    (Triangulation<dim>::smoothing_on_refinement |
                     Triangulation<dim>::smoothing_on_coarsening)),
-    fe(FE_Q<dim>(1),2),
+    fe(FE_Q<dim>(1),3),
     dof_handler (triangulation),
     pcout (std::cout, (Utilities::MPI::this_mpi_process(mpi_communicator)== 0)),
     computing_timer (mpi_communicator, pcout, TimerOutput::summary, TimerOutput::wall_times){
@@ -87,10 +82,11 @@ namespace phaseField1
     currentIncrement=0; currentTime=0;
 
     //nodal Solution names
-    nodal_solution_names.push_back("T"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+    nodal_solution_names.push_back("phi"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
-     nodal_solution_names.push_back("phi"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+     nodal_solution_names.push_back("eta"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
+     nodal_solution_names.push_back("c"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
     
      //   nodal_solution_names.push_back("mu"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
@@ -351,7 +347,7 @@ namespace phaseField1
 
     std::vector<Vector<double> > quadSolutions;
     for (unsigned int q=0; q<n_q_points; ++q){
-      quadSolutions.push_back(dealii::Vector<double>(2)); //2 since there are two degree of freedom per cell
+      quadSolutions.push_back(dealii::Vector<double>(3)); //2 since there are two degree of freedom per cell
     }
 
     bool checkForFurtherRefinement=true;
@@ -371,7 +367,7 @@ namespace phaseField1
 	  bool mark_refine = false, mark_refine_solute=false;
 	     for (unsigned int q=0; q<n_q_points; ++q) {
 	       Point<dim> qPoint=fe_values.quadrature_point(q);	       
-	       if (quadSolutions[q][1]>-0.9 && quadSolutions[q][1]<0.9) {
+	       if (quadSolutions[q][1]<0.999 && quadSolutions[q][1]>0.001) {
 		 mark_refine = true;
 	       }
 	           

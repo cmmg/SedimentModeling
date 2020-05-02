@@ -1,38 +1,36 @@
 //problem geometry, mesh control
 #define DIMS 2
 #define FEOrder 2
-#define problemWidth 500.0
+#define problemWidth 50.0
 #define globalRefinementFactor 6
 #define maxRefinementLevel (globalRefinementFactor+2)
-#define minRefinementLevel (globalRefinementFactor)
-
-
-
-//phase field properties
-#define InterfaceEnergyParameter {1.0e-2, 1.0e-2, 1.0e-2} //{Kx, Ky, Kz}
-#define dFdC  400*c[q]*(c[q]-1.0)*(c[q]-0.5) //derivative of the free energy
-#define Mobility 1.0
+#define minRefinementLevel (globalRefinementFactor-2)
 
 //time step controls
-#define TimeStep 0.4
+#define TimeStep 0.1
 #define TotalTime 35000*TimeStep
 #define PSTEPS 50 
 
 //output controls
 #define outputFileName "solution"
 
-//solidifcation kobayashi parameters 
+//parameters 
 
-#define D 1.0
+#define M_c 1.0
+#define M_eta 0.00025
+#define delt 1.0
+#define f_a 0.5*c[q]*c[q]/16.0
+#define f_a_c 0.5*c[q]/8.0
+#define f_a_c_c 0.5/8.0
+#define f_b 0.5*(c[q]-1)*(c[q]-1)/16.0
+#define f_b_c 0.5*(c[q]-1)/8.0
+#define f_b_c_c 0.5/8.0
+#define HH 3.0*eta[q]*eta[q] - 2.0*eta[q]*eta[q]*eta[q]
+#define H_eta 6.0*eta[q] - 6.0*eta[q]*eta[q]
+#define gamma0 1.0
+#define www {50.0, 50.0, 50.0}  //w i
+#define aaalpha {0.6, 0.6, 0.6}  //alpha i
+#define n_orient 3
+#define ooorient  {{-0.866025403784,-0.5},{0.866025403784,-0.5},{0.0,1.0}}
 
-#define tau0 1.0
-#define W0 1.0
-#define mm 4.0
-#define em 0.05
-#define theta0 0.125 
-#define lam  D*tau0/W0/W0/0.6267
 
-//#define L 3333.33
-//#define tau0 1.0/L   // (1/L) where L = 3333.33
-//#define KK 2.0
-//#define amplitude 0.01
