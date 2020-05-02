@@ -27,8 +27,9 @@ namespace phaseField1
 	values(0)=0;	      
 	double dist= (sqrt(p[0]*p[0]+p[1]*p[1]) - problemWidth/4.0)/4.0;
 	values(1)= 0.5*(1-std::tanh(dist)) ;
-	values(2)=0.082*16/(problemWidth/4.0) + 3.0*dist*dist-2*dist*dist*dist;
-      
+	double nn= 0.5*(1-std::tanh(dist)) ;
+	values(2)=0.082*16.0/(problemWidth/4.0) + 3.0*nn*nn-2*nn*nn*nn;
+	//values(0)=0;values(1)=0; values(2)=0;
     }
   };
   
@@ -199,7 +200,7 @@ namespace phaseField1
   }
   
 
-  /*
+  /* 
   //Solve
   template <int dim>
  void phaseField<dim>::solveIteration(){
@@ -236,8 +237,8 @@ namespace phaseField1
     locally_relevant_solution = completely_distributed_solution;
     dU = completely_distributed_solution; 
   }
-    */
-
+    
+*/
   
    template <int dim>
   void phaseField<dim>::solveIteration ()
@@ -259,7 +260,7 @@ namespace phaseField1
     pcout << "   Solved in " << solver_control.last_step()
           << " iterations." << std::endl;
   }
-
+ 
   
 
   

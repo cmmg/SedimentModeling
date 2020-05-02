@@ -44,16 +44,14 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
 
 	else if (ck==2)
 	  { c_j[q][j]+=fe_values.shape_grad(i, q)[j]*ULocal[i];
-	      }
+	  }
       }
     }
         
   }
 
-   double ww[] =www;
-   double aalpha[] =aaalpha;
-   double oorient[][dim] = ooorient;
-   
+  
+     
   //evaluate Residual
   for (unsigned int i=0; i<dofs_per_cell; ++i) {
     const unsigned int ck = fe_values.get_fe().system_to_component_index(i).first - DOF;
@@ -62,6 +60,19 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
       dealii::Table<1,Sacado::Fad::DFad<double> > bigM(dim),dgammadtheta(dim), theta(dim) ;
       Sacado::Fad::DFad<double> gamma ;
       Sacado::Fad::DFad<double> Unity=1.0 ;
+      Sacado::Fad::DFad<double> f_a = 0.5*c[q]*c[q]/16.0 ;
+      Sacado::Fad::DFad<double> f_a_c= 0.5*c[q]/8.0 ;
+      Sacado::Fad::DFad<double> f_a_c_c = 0.5/8.0;
+      Sacado::Fad::DFad<double> f_b = 0.5*(c[q]-1)*(c[q]-1)/16.0 ;
+      Sacado::Fad::DFad<double> f_b_c= 0.5*(c[q]-1)/8.0;
+      Sacado::Fad::DFad<double> f_b_c_c= 0.5/8.0 ;
+      Sacado::Fad::DFad<double> HH = 3.0*eta[q]*eta[q] - 2.0*eta[q]*eta[q]*eta[q];
+      Sacado::Fad::DFad<double> H_eta = 6.0*eta[q] - 6.0*eta[q]*eta[q];
+
+      Sacado::Fad::DFad<double> ww[] =www;
+      Sacado::Fad::DFad<double> aalpha[] =aaalpha;
+      Sacado::Fad::DFad<double> oorient[][dim] = ooorient;
+  
       
       Sacado::Fad::DFad<double> GradMagEta= eta_j[q][0]*eta_j[q][0]+eta_j[q][1]*eta_j[q][1] ;
       GradMagEta = std::sqrt(GradMagEta);
@@ -77,7 +88,7 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
 
       dealii::Table<2,Sacado::Fad::DFad<double> > orient(n_orient,dim) ;
 
-      Sacado::Fad::DFad<double> product ;
+      Sacado::Fad::DFad<double> product=0 ;
       double HeavySide=0;
       gamma=1.0;dgammadtheta[0]=0;dgammadtheta[1]=0; 
       for (unsigned int i=0; i<n_orient; ++i) {
@@ -91,11 +102,11 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
 	
 	product=orient[i][0]*theta[0] + orient[i][1]*theta[1];
 	if (product > 0) HeavySide =1.0;
-	gamma-=alpha*std::pow(product,w)*HeavySide;
+	gamma-=alpha*std::pow(product.val(),w)*HeavySide;
 
-	dgammadtheta[0]-=w*alpha*std::pow(product,w-1)*orient[i][0]*HeavySide;
-	dgammadtheta[1]-=w*alpha*std::pow(product,w-1)*orient[i][1]*HeavySide;
-	
+	dgammadtheta[0]-=w*alpha*std::pow(product.val(),w-1)*orient[i][0]*HeavySide;
+	dgammadtheta[1]-=w*alpha*std::pow(product.val(),w-1)*orient[i][1]*HeavySide;
+	HeavySide=0; //reset Heavy side
       }
       gamma*=gamma0;
       dgammadtheta[0]*=gamma0;
@@ -113,7 +124,8 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
       bigM[0]=gamma*bigM[0];
       bigM[1]=gamma*bigM[1];
       
-      
+      //std::cout << "theta  x  is " <<theta[0].val() <<std::endl;
+      //std::cout << "theta y  is " <<theta[1].val() <<std::endl;
       
       if (ck==0) {
 	R[i] += fe_values.shape_value(i, q)*(phi[q])*fe_values.JxW(q);
@@ -125,11 +137,11 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
       
       else if(ck==1) {	
 	R[i] +=  (1.0/dt)*fe_values.shape_value(i, q)*(eta[q] - eta_conv[q])*fe_values.JxW(q);  
-	R[i] +=  (M_eta)*fe_values.shape_value(i, q)*(f_b_c-f_a_c)*(H_eta)*fe_values.JxW(q);
+	R[i] +=  (M_eta)*fe_values.shape_value(i, q)*(f_b-f_a)*(H_eta)*fe_values.JxW(q);
 
 	for (unsigned int j = 0; j < dim; j++) {
 	  R[i]+= (M_eta)*fe_values.shape_grad(i, q)[j]*bigM[j]*fe_values.JxW(q);
-	  R[i]+= (M_eta)*(delt*delt)*fe_values.shape_grad(i, q)[j]*phi_j[q][j]*fe_values.JxW(q);
+	  R[i]+=-(M_eta)*(delt*delt)*fe_values.shape_grad(i, q)[j]*phi_j[q][j]*fe_values.JxW(q);
 	}
       }
 
@@ -137,7 +149,7 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
 	R[i] +=  (1.0/dt)*fe_values.shape_value(i, q)*(c[q] - c_conv[q])*fe_values.JxW(q);
 	
 	for (unsigned int j = 0; j < dim; j++) {
-	  R[i]+= (M_c)*fe_values.shape_grad(i, q)[j]*(f_a_c_c*(Unity-HH)+f_b_c_c*HH)*(c_j[q][j])*fe_values.JxW(q);
+	  R[i]+= (M_c)*fe_values.shape_grad(i, q)[j]*(f_a_c_c*(1.0-HH)+f_b_c_c*HH)*(c_j[q][j])*fe_values.JxW(q);
 	  R[i]+= (M_c)*fe_values.shape_grad(i, q)[j]*(f_b_c-f_a_c)*(H_eta)*(eta_j[q][j])*fe_values.JxW(q); 
 	  
 	}
