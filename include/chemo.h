@@ -57,7 +57,9 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
     const unsigned int ck = fe_values.get_fe().system_to_component_index(i).first - DOF;
     
     for (unsigned int q=0; q<n_q_points; ++q) {
-      dealii::Table<1,Sacado::Fad::DFad<double> > bigM(dim),dgammadtheta(dim), theta(dim) ;
+      //dealii::Table<1,Sacado::Fad::DFad<double> > bigM(dim),dgammadtheta(dim), theta(dim) ;
+      dealii::Table<1,Sacado::Fad::DFad<double> > bigM(dim) ;
+      
       Sacado::Fad::DFad<double> gamma ;
       Sacado::Fad::DFad<double> Unity=1.0 ;
       Sacado::Fad::DFad<double> f_a = 0.5*c[q]*c[q]/16.0 ;
@@ -69,15 +71,17 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
       Sacado::Fad::DFad<double> HH = 3.0*eta[q]*eta[q] - 2.0*eta[q]*eta[q]*eta[q];
       Sacado::Fad::DFad<double> H_eta = 6.0*eta[q] - 6.0*eta[q]*eta[q];
 
+      /*
       Sacado::Fad::DFad<double> ww[] =www;
       Sacado::Fad::DFad<double> aalpha[] =aaalpha;
       Sacado::Fad::DFad<double> oorient[][dim] = ooorient;
-  
+      
+      
       
       Sacado::Fad::DFad<double> GradMagEta= eta_j[q][0]*eta_j[q][0]+eta_j[q][1]*eta_j[q][1] ;
       GradMagEta = std::sqrt(GradMagEta);
 
-      
+     
       if (GradMagEta < 1.0e-12) {
 	theta[0]=0; theta[1]=0;
       }
@@ -85,7 +89,9 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
 	theta[0]=eta_j[q][0]/GradMagEta;
 	theta[1]=eta_j[q][1]/GradMagEta;
       }
+      */
 
+      /*
       dealii::Table<2,Sacado::Fad::DFad<double> > orient(n_orient,dim) ;
 
       Sacado::Fad::DFad<double> product=0 ;
@@ -123,9 +129,15 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
       }
       bigM[0]=gamma*bigM[0];
       bigM[1]=gamma*bigM[1];
+      */
+
+      double  angle  = std::atan2(eta_j[q][1].val(), eta_j[q][0].val());      
+      gamma = gamma0*(1+ em*std::cos(mm*(angle-theta0))) ;
+      Sacado::Fad::DFad<double> gammaprime = -gamma0*em*mm*std::sin(mm*(angle-theta0)) ;		   		   
+      bigM[0]=gamma*gamma*eta_j[q][0] - gamma*gammaprime*eta_j[q][1] ;
+      bigM[1]=gamma*gamma*eta_j[q][1] + gamma*gammaprime*eta_j[q][0] ;
       
-      //std::cout << "theta  x  is " <<theta[0].val() <<std::endl;
-      //std::cout << "theta y  is " <<theta[1].val() <<std::endl;
+
       
       if (ck==0) {
 	R[i] += fe_values.shape_value(i, q)*(phi[q])*fe_values.JxW(q);
