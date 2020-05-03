@@ -96,10 +96,7 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
 	Sacado::Fad::DFad<double> alpha= aalpha[i];
 	orient[i][0]= oorient[i][0];
 	orient[i][1]= oorient[i][1];
-	
-	//orient[1]= oorient[i];
-	//orient[2]= oorient[i];
-	
+		
 	product=orient[i][0]*theta[0] + orient[i][1]*theta[1];
 	if (product > 0) HeavySide =1.0;
 	gamma-=alpha*std::pow(product.val(),w)*HeavySide;
@@ -123,9 +120,7 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
       }
       bigM[0]=gamma*bigM[0];
       bigM[1]=gamma*bigM[1];
-      
-      //std::cout << "theta  x  is " <<theta[0].val() <<std::endl;
-      //std::cout << "theta y  is " <<theta[1].val() <<std::endl;
+    
       
       if (ck==0) {
 	R[i] += fe_values.shape_value(i, q)*(phi[q])*fe_values.JxW(q);

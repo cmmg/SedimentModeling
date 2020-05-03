@@ -29,7 +29,6 @@ namespace phaseField1
 	values(1)= 0.5*(1-std::tanh(dist)) ;
 	double nn= 0.5*(1-std::tanh(dist)) ;
 	values(2)=0.082*16.0/(problemWidth/4.0) + 3.0*nn*nn-2*nn*nn*nn;
-	//values(0)=0;values(1)=0; values(2)=0;
     }
   };
   
@@ -89,7 +88,6 @@ namespace phaseField1
 
      nodal_solution_names.push_back("c"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
     
-     //   nodal_solution_names.push_back("mu"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
  
   }
@@ -339,12 +337,6 @@ namespace phaseField1
     unsigned int dofs_per_cell= fe_values.dofs_per_cell;
     unsigned int n_q_points= fe_values.n_quadrature_points;
 
-
-    /*
-    char buffer[200];
-    sprintf(buffer, "laser source at: (%7.3e, %7.3e,%7.3e)\n",laserLocationX,laserLocationY,laserLocationZ);
-    pcout << buffer;
-    */
 
     std::vector<Vector<double> > quadSolutions;
     for (unsigned int q=0; q<n_q_points; ++q){
