@@ -20,11 +20,6 @@
 #define M_eta 0.00025
 #define delt 1.0
 #define gamma0 1.0
-#define www {50.0, 50.0, 50.0}  //w i
-#define aaalpha {0.6, 0.6, 0.6}  //alpha i
-#define n_orient 3
-#define ooorient  {{-0.866025403784,-0.5},{0.866025403784,-0.5},{0.0,1.0}}
-
 #define mm 4.0
 #define em 0.125
 #define angle0 0.0
