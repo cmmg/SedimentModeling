@@ -1,5 +1,5 @@
 //problem geometry, mesh control
-#define DIMS 2
+#define DIMS 5
 #define FEOrder 2
 #define problemWidth 50.0
 #define globalRefinementFactor 5
@@ -23,3 +23,14 @@
 #define mm 4.0
 #define em 0.125
 #define angle0 0.0
+
+
+#define Pressure 1.0
+
+//mechanics properties
+#define elasticModulus 2.0
+#define PoissonsRatio 0.3
+
+//define parameter
+#define LAM 2.0
+#define MU  0.3

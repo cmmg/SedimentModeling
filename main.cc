@@ -11,6 +11,7 @@
 #include "parameters.h"
 //physics headers
 #include "include/chemo.h"
+#include "include/mechanics.h"
 
 //Namespace
 namespace phaseField1
@@ -21,14 +22,16 @@ namespace phaseField1
   template <int dim>
   class InitalConditions: public Function<dim>{
   public:
-    InitalConditions (): Function<dim>(3){std::srand(5);}
+    InitalConditions (): Function<dim>(5){std::srand(5);}
     void vector_value (const Point<dim>   &p, Vector<double>   &values) const{
-        Assert (values.size() == 3, ExcDimensionMismatch (values.size(), 3));	
+        Assert (values.size() == 5, ExcDimensionMismatch (values.size(), 5));	
 	values(0)=0;	      
 	double dist= (sqrt(p[0]*p[0]+p[1]*p[1]) - problemWidth/4.0)/4.0;
 	values(1)= 0.5*(1-std::tanh(dist)) ;
 	double nn= 0.5*(1-std::tanh(dist)) ;
 	values(2)=0.082*16.0/(problemWidth/4.0) + 3.0*nn*nn-2*nn*nn*nn;
+	values(3)=0;
+	values(4)=0;
     }
   };
   
@@ -73,7 +76,7 @@ namespace phaseField1
                    typename Triangulation<dim>::MeshSmoothing
                    (Triangulation<dim>::smoothing_on_refinement |
                     Triangulation<dim>::smoothing_on_coarsening)),
-    fe(FE_Q<dim>(1),3),
+    fe(FE_Q<dim>(1),5),
     dof_handler (triangulation),
     pcout (std::cout, (Utilities::MPI::this_mpi_process(mpi_communicator)== 0)),
     computing_timer (mpi_communicator, pcout, TimerOutput::summary, TimerOutput::wall_times){
@@ -86,7 +89,12 @@ namespace phaseField1
 
      nodal_solution_names.push_back("eta"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
      nodal_solution_names.push_back("c"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
- 
+
+      //noda 
+    for (unsigned int i=0; i<dim; ++i){
+      nodal_solution_names.push_back("u"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_part_of_vector);
+    }
+     
   }
   
   template <int dim>
@@ -103,8 +111,16 @@ namespace phaseField1
     
     //Setup boundary conditions
     //No Dirchlet BC are necessary for the parabolic problem
+    constraints.clear (); 
+    constraints.reinit (locally_relevant_dofs);
+    DoFTools::make_hanging_node_constraints (dof_handler, constraints);
+    
+    //Setup boundary conditions
+    //No Dirchlet BC are necessary for the parabolic problem
     
     constraints.close ();
+
+    
   }
   
   //Setup
@@ -146,7 +162,9 @@ namespace phaseField1
                              update_values    |  update_gradients |
                              update_quadrature_points |
                              update_JxW_values);
-    FEFaceValues<dim> fe_face_values (fe, face_quadrature_formula, update_values | update_quadrature_points | update_JxW_values | update_normal_vectors);
+    FEFaceValues<dim> fe_face_values (fe, face_quadrature_formula, update_values |update_gradients |update_quadrature_points | update_JxW_values | update_normal_vectors);
+
+    
     const unsigned int   dofs_per_cell = fe.dofs_per_cell;
     FullMatrix<double>   local_matrix (dofs_per_cell, dofs_per_cell);
     Vector<double>       local_rhs (dofs_per_cell);
@@ -169,12 +187,25 @@ namespace phaseField1
 	  ULocalConv[i]= UnGhost(local_dof_indices[i]);
 	}
 
+	 //get defomration map                                                                                                               
+        deformationMap<Sacado::Fad::DFad<double>, dim> defMap(n_q_points);
+        getDeformationMap<Sacado::Fad::DFad<double>, dim>(fe_values, 0, ULocal, defMap, currentIteration);
+		
 	//setup residual vector
-	Table<1, Sacado::Fad::DFad<double> > R(dofs_per_cell); 
-	for (unsigned int i=0; i<dofs_per_cell; ++i) {R[i]=0.0;}
+	Table<1, Sacado::Fad::DFad<double> > Rc(dofs_per_cell),Rm(dofs_per_cell),R(dofs_per_cell); 
+	for (unsigned int i=0; i<dofs_per_cell; ++i) {R[i]=0.0;
+	  Rc[i]=0.0;
+	  Rm[i]=0.0;
+	}
 	
 	//populate residual vector 
-	residualForChemo(fe_values, 0, fe_face_values, cell, dt, ULocal, ULocalConv, R, currentTime, totalTime);
+	residualForChemo(fe_values, 0, fe_face_values, cell, dt, ULocal, ULocalConv, Rc, currentTime, totalTime);
+	//residualForMechanics(fe_values,fe_face_values, 0, ULocal, ULocalConv, Rm, defMap, cell);
+	
+	for (unsigned int i=0; i<dofs_per_cell; ++i) {
+	  R[i]=Rc[i]+Rm[i];
+	}
+	
 	
 	//evaluate Residual(R) and Jacobian(R')
 	for (unsigned int i=0; i<dofs_per_cell; ++i) {
@@ -336,7 +367,7 @@ namespace phaseField1
 
     std::vector<Vector<double> > quadSolutions;
     for (unsigned int q=0; q<n_q_points; ++q){
-      quadSolutions.push_back(dealii::Vector<double>(3)); //2 since there are two degree of freedom per cell
+      quadSolutions.push_back(dealii::Vector<double>(5)); //2 since there are two degree of freedom per cell
     }
 
     bool checkForFurtherRefinement=true;
