@@ -35,14 +35,14 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
       else if (ck==2) {c[q]+=fe_values.shape_value(i, q)*ULocal[i]; c_conv[q]+=fe_values.shape_value(i, q)*ULocalConv[i]; }
 
       for (unsigned int j=0; j<dim; j++) {
-	if (ck==0) {
+	if (ck==2) {
 	  phi_j[q][j]+=fe_values.shape_grad(i, q)[j]*ULocal[i];
 	}
-	else if (ck==1)
+	else if (ck==3)
 	  { eta_j[q][j]+=fe_values.shape_grad(i, q)[j]*ULocal[i];	   
 	}
 
-	else if (ck==2)
+	else if (ck==4)
 	  { c_j[q][j]+=fe_values.shape_grad(i, q)[j]*ULocal[i];
 	  }
       }
@@ -77,7 +77,7 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
       
 
       
-      if (ck==0) {
+      if (ck==2) {
 	R[i] += fe_values.shape_value(i, q)*(phi[q])*fe_values.JxW(q);
 	for (unsigned int j = 0; j < dim; j++){	
 	  R[i] += fe_values.shape_grad(i, q)[j]*eta_j[q][j]*fe_values.JxW(q);  
@@ -85,7 +85,7 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
 	
       }
       
-      else if(ck==1) {	
+      else if(ck==3) {	
 	R[i] +=  (1.0/dt)*fe_values.shape_value(i, q)*(eta[q] - eta_conv[q])*fe_values.JxW(q);  
 	R[i] +=  (M_eta)*fe_values.shape_value(i, q)*(f_b-f_a)*(H_eta)*fe_values.JxW(q);
 
@@ -95,7 +95,7 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
 	}
       }
 
-      else if(ck==2) {
+      else if(ck==4) {
 	R[i] +=  (1.0/dt)*fe_values.shape_value(i, q)*(c[q] - c_conv[q])*fe_values.JxW(q);
 	
 	for (unsigned int j = 0; j < dim; j++) {

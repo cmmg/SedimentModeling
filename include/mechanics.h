@@ -33,7 +33,7 @@ template <class T, int dim>
     }
     for (unsigned int k=0; k<dofs_per_cell; ++k){
       unsigned int ck = fe_values.get_fe().system_to_component_index(k).first - DOF;
-      if (ck>=3 && ck<5){
+      if (ck>=0 && ck<2){
 	for (unsigned int i=0; i<dim; ++i){
 	  gradU[q][ck][i]+=ULocal[k]*fe_values.shape_grad(k, q)[i]; //gradU
 	}
@@ -110,7 +110,7 @@ void residualForMechanics(FEValues<dim>& fe_values, FEFaceValues<dim>& fe_face_v
       eta[q]=0.0;      
      for (unsigned int i=0; i<dofs_per_cell; ++i) {
        const unsigned int ck = fe_values.get_fe().system_to_component_index(i).first - DOF;
-     if (ck==1){ eta[q]+=fe_values.shape_value(i, q)*ULocal[i]; }            
+     if (ck==3){ eta[q]+=fe_values.shape_value(i, q)*ULocal[i]; }            
      }
   }
 
@@ -127,7 +127,7 @@ void residualForMechanics(FEValues<dim>& fe_values, FEFaceValues<dim>& fe_face_v
   //evaluate Residual
   for (unsigned int i=0; i<dofs_per_cell; ++i) {
     const unsigned int ck = fe_values.get_fe().system_to_component_index(i).first - DOF;
-    if (ck>=3 && ck<5.0){
+    if (ck>=0 && ck<2){
       // R = Grad(w)*P
       for (unsigned int q=0; q<n_q_points; ++q){
 	for (unsigned int d = 0; d < dim; d++){

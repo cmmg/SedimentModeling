@@ -22,16 +22,16 @@ namespace phaseField1
   template <int dim>
   class InitalConditions: public Function<dim>{
   public:
-    InitalConditions (): Function<dim>(5){std::srand(5);}
+    InitalConditions (): Function<dim>(DIMS){std::srand(5);}
     void vector_value (const Point<dim>   &p, Vector<double>   &values) const{
-        Assert (values.size() == 5, ExcDimensionMismatch (values.size(), 5));	
+        Assert (values.size() == DIMS, ExcDimensionMismatch (values.size(), DIMS));	
 	values(0)=0;	      
+	values(1)=0;
+	values(2)=0;
 	double dist= (sqrt(p[0]*p[0]+p[1]*p[1]) - problemWidth/4.0)/4.0;
-	values(1)= 0.5*(1-std::tanh(dist)) ;
+	values(3)= 0.5*(1-std::tanh(dist)) ;
 	double nn= 0.5*(1-std::tanh(dist)) ;
-	values(2)=0.082*16.0/(problemWidth/4.0) + 3.0*nn*nn-2*nn*nn*nn;
-	values(3)=0;
-	values(4)=0;
+	values(4)=0.082*16.0/(problemWidth/4.0) + 3.0*nn*nn-2*nn*nn*nn;
     }
   };
   
@@ -76,7 +76,7 @@ namespace phaseField1
                    typename Triangulation<dim>::MeshSmoothing
                    (Triangulation<dim>::smoothing_on_refinement |
                     Triangulation<dim>::smoothing_on_coarsening)),
-    fe(FE_Q<dim>(1),5),
+    fe(FE_Q<dim>(1),DIMS),
     dof_handler (triangulation),
     pcout (std::cout, (Utilities::MPI::this_mpi_process(mpi_communicator)== 0)),
     computing_timer (mpi_communicator, pcout, TimerOutput::summary, TimerOutput::wall_times){
@@ -200,7 +200,7 @@ namespace phaseField1
 	
 	//populate residual vector 
 	residualForChemo(fe_values, 0, fe_face_values, cell, dt, ULocal, ULocalConv, Rc, currentTime, totalTime);
-	//residualForMechanics(fe_values,fe_face_values, 0, ULocal, ULocalConv, Rm, defMap, cell);
+	residualForMechanics(fe_values,fe_face_values, 0, ULocal, ULocalConv, Rm, defMap, cell);
 	
 	for (unsigned int i=0; i<dofs_per_cell; ++i) {
 	  R[i]=Rc[i]+Rm[i];
@@ -387,7 +387,7 @@ namespace phaseField1
 	  bool mark_refine = false, mark_refine_solute=false;
 	     for (unsigned int q=0; q<n_q_points; ++q) {
 	       Point<dim> qPoint=fe_values.quadrature_point(q);	       
-	       if (quadSolutions[q][1]<0.999 && quadSolutions[q][1]>0.001) {
+	       if (quadSolutions[q][3]<0.999 && quadSolutions[q][3]>0.001) {
 		 mark_refine = true;
 	       }
 	           
