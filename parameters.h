@@ -2,14 +2,14 @@
 #define DIMS 5
 #define FEOrder 2
 #define problemWidth 50.0
-#define globalRefinementFactor 5
+#define globalRefinementFactor 6
 #define maxRefinementLevel (globalRefinementFactor+1)
 #define minRefinementLevel (globalRefinementFactor-1)
 
 //time step controls
-#define TimeStep 50.0
-#define TotalTime 35000*TimeStep
-#define PSTEPS 50 
+#define TimeStep 1
+#define TotalTime 1000*TimeStep
+#define PSTEPS 10
 
 //output controls
 #define outputFileName "solution"
@@ -25,7 +25,7 @@
 #define angle0 0.0
 
 
-#define Pressure 1.0
+#define Pressure 0.001
 
 
 //mechanics properties                                                                                                                      

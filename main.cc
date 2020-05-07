@@ -29,7 +29,8 @@ namespace phaseField1
 	values(1)=0;
 	values(2)=0;
 	double dist= (sqrt(p[0]*p[0]+p[1]*p[1]) - problemWidth/4.0)/4.0;
-	values(3)= 0.5*(1-std::tanh(dist)) ;
+	values(3)=1- 0.5*(1-std::tanh(dist)) ;
+	
 	double nn= 0.5*(1-std::tanh(dist)) ;
 	values(4)=0.082*16.0/(problemWidth/4.0) + 3.0*nn*nn-2*nn*nn*nn;
     }
@@ -42,7 +43,7 @@ namespace phaseField1
     ~phaseField ();
     void run ();
 
-  private:
+   private:
     void applyBoundaryConditions(const unsigned int increment);
     void setup_system ();
     void assemble_system ();
@@ -56,7 +57,7 @@ namespace phaseField1
     DoFHandler<dim>                           dof_handler;
     IndexSet                                  locally_owned_dofs;
     IndexSet                                  locally_relevant_dofs;
-    ConstraintMatrix                          constraints;
+    ConstraintMatrix                          constraints,constraints2;
     LA::MPI::SparseMatrix                     system_matrix;
     LA::MPI::Vector                           locally_relevant_solution, U, Un, UGhost, UnGhost, dU;
     LA::MPI::Vector                           system_rhs;
@@ -85,15 +86,20 @@ namespace phaseField1
     currentIncrement=0; currentTime=0;
 
     //nodal Solution names
+    for (unsigned int i=0; i<dim; ++i){
+      nodal_solution_names.push_back("u"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_part_of_vector);
+    }
+
+
     nodal_solution_names.push_back("phi"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
      nodal_solution_names.push_back("eta"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
      nodal_solution_names.push_back("c"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
       //noda 
-    for (unsigned int i=0; i<dim; ++i){
-      nodal_solution_names.push_back("u"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_part_of_vector);
-    }
+     //for (unsigned int i=0; i<dim; ++i){
+     //nodal_solution_names.push_back("u"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_part_of_vector);
+     //}
      
   }
   
@@ -105,22 +111,32 @@ namespace phaseField1
   //Apply boundary conditions
   template <int dim>
   void phaseField<dim>::applyBoundaryConditions(const unsigned int increment){
-    constraints.clear (); 
-    constraints.reinit (locally_relevant_dofs);
-    DoFTools::make_hanging_node_constraints (dof_handler, constraints);
-    
-    //Setup boundary conditions
-    //No Dirchlet BC are necessary for the parabolic problem
-    constraints.clear (); 
-    constraints.reinit (locally_relevant_dofs);
-    DoFTools::make_hanging_node_constraints (dof_handler, constraints);
-    
-    //Setup boundary conditions
-    //No Dirchlet BC are necessary for the parabolic problem
-    
-    constraints.close ();
 
     
+
+    constraints.clear (); constraints2.clear ();
+    constraints.reinit (locally_relevant_dofs);
+    constraints2.reinit (locally_relevant_dofs);
+    DoFTools::make_hanging_node_constraints (dof_handler, constraints);
+    DoFTools::make_hanging_node_constraints (dof_handler, constraints2);
+
+    //Setup boundary conditions                                                                                                                                                                           
+    std::vector<bool> uBCX0 (dim+3, false); uBCX0[0]=true;uBCX0[1]=true;                                                                                                                                                 
+    VectorTools::interpolate_boundary_values (dof_handler, 0, ZeroFunction<dim>(dim+3), constraints, uBCX0);
+    VectorTools::interpolate_boundary_values (dof_handler, 0, ZeroFunction<dim>(dim+3), constraints2, uBCX0);
+    
+
+    VectorTools::interpolate_boundary_values (dof_handler, 1, ZeroFunction<dim>(dim+3), constraints, uBCX0);
+    VectorTools::interpolate_boundary_values (dof_handler, 1, ZeroFunction<dim>(dim+3), constraints2, uBCX0);
+    
+    VectorTools::interpolate_boundary_values (dof_handler, 2, ZeroFunction<dim>(dim+3), constraints, uBCX0);
+    VectorTools::interpolate_boundary_values (dof_handler, 2, ZeroFunction<dim>(dim+3), constraints2, uBCX0);
+ 
+    VectorTools::interpolate_boundary_values (dof_handler, 3, ZeroFunction<dim>(dim+3), constraints, uBCX0);
+    VectorTools::interpolate_boundary_values (dof_handler, 3, ZeroFunction<dim>(dim+3), constraints2, uBCX0);
+
+    constraints.close ();
+    constraints2.close ();    
   }
   
   //Setup
@@ -146,7 +162,7 @@ namespace phaseField1
     applyBoundaryConditions(0);
     
     DynamicSparsityPattern dsp (locally_relevant_dofs);
-    DoFTools::make_sparsity_pattern (dof_handler, dsp, constraints, false);
+    DoFTools::make_sparsity_pattern (dof_handler, dsp, constraints2, false);
     SparsityTools::distribute_sparsity_pattern (dsp, dof_handler.n_locally_owned_dofs_per_processor(), mpi_communicator, locally_relevant_dofs);
     system_matrix.reinit (locally_owned_dofs, locally_owned_dofs, dsp, mpi_communicator);
   }
@@ -200,7 +216,7 @@ namespace phaseField1
 	
 	//populate residual vector 
 	residualForChemo(fe_values, 0, fe_face_values, cell, dt, ULocal, ULocalConv, Rc, currentTime, totalTime);
-	residualForMechanics(fe_values,fe_face_values, 0, ULocal, ULocalConv, Rm, defMap, cell);
+	residualForMechanics(fe_values,fe_face_values, 0, ULocal, ULocalConv, Rm, defMap, cell, currentIncrement);
 	
 	for (unsigned int i=0; i<dofs_per_cell; ++i) {
 	  R[i]=Rc[i]+Rm[i];
@@ -217,7 +233,14 @@ namespace phaseField1
 	  //R
 	  local_rhs(i) = -R[i].val();
 	}
-	constraints.distribute_local_to_global (local_matrix, local_rhs, local_dof_indices, system_matrix, system_rhs);
+
+	if ((currentIteration==0)){
+          constraints.distribute_local_to_global (local_matrix, local_rhs, local_dof_indices, system_matrix, system_rhs);
+        }
+        else{
+          constraints2.distribute_local_to_global (local_matrix, local_rhs, local_dof_indices, system_matrix, system_rhs);
+        }
+	
       }
     system_matrix.compress (VectorOperation::add);
     system_rhs.compress (VectorOperation::add);
@@ -226,7 +249,7 @@ namespace phaseField1
   }
   
 
-  /* 
+   
   //Solve
   template <int dim>
  void phaseField<dim>::solveIteration(){
@@ -234,6 +257,7 @@ namespace phaseField1
     LA::MPI::Vector completely_distributed_solution (locally_owned_dofs, mpi_communicator);
     /*      
     //Iterative solvers from Petsc and Trilinos
+
     SolverControl solver_control (dof_handler.n_dofs(), 1e-12);
 #ifdef USE_PETSC_LA
     LA::SolverGMRES solver(solver_control, mpi_communicator);
@@ -254,18 +278,30 @@ namespace phaseField1
     */
     //Direct solver MUMPS
 
-    /*  
+      
     SolverControl cn;
     PETScWrappers::SparseDirectMUMPS solver(cn, mpi_communicator);
     solver.set_symmetric_mode(false);
     solver.solve(system_matrix, completely_distributed_solution, system_rhs);
-    constraints.distribute (completely_distributed_solution);
+
+    //                                                                                                                                                                             
+    if ((currentIteration==0)){
+      constraints.distribute (completely_distributed_solution);
+    }
+    else{
+      constraints2.distribute (completely_distributed_solution);
+    }
+    
+    //constraints.distribute (completely_distributed_solution);
+
+
     locally_relevant_solution = completely_distributed_solution;
     dU = completely_distributed_solution; 
   }
     
-*/
-  
+    
+
+  /*
    template <int dim>
   void phaseField<dim>::solveIteration ()
   {
@@ -287,7 +323,7 @@ namespace phaseField1
           << " iterations." << std::endl;
   }
  
-  
+    */
 
   
   //Solve
@@ -298,7 +334,7 @@ namespace phaseField1
     currentIteration=0;
     char buffer[200];
     while (true){
-      if (currentIteration>=25){sprintf(buffer, "maximum number of iterations reached without convergence. \n"); pcout<<buffer; break;exit (1);}
+      if (currentIteration>=8){sprintf(buffer, "maximum number of iterations reached without convergence. \n"); pcout<<buffer; break;}
       if (current_norm>1/std::pow(tol,2)){sprintf(buffer, "\n norm is too high. \n\n"); pcout<<buffer; break; exit (1);}
       assemble_system();
       current_norm=system_rhs.l2_norm();
