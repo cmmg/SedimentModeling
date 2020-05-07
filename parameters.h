@@ -27,10 +27,8 @@
 
 #define Pressure 1.0
 
-//mechanics properties
-#define elasticModulus 2.0
+
+//mechanics properties                                                                                                                      
+#define elasticModulus (1.0)*(pow(10.0,0.0))
 #define PoissonsRatio 0.3
 
-//define parameter
-#define LAM 2.0
-#define MU  0.3

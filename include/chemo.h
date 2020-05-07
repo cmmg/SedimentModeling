@@ -30,9 +30,9 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
     for (unsigned int j=0; j<dim; j++) {phi_j[q][j]=0.0; eta_j[q][j]=0.0;  c_j[q][j]=0.0; }
     for (unsigned int i=0; i<dofs_per_cell; ++i) {
       const unsigned int ck = fe_values.get_fe().system_to_component_index(i).first - DOF;      
-      if (ck==0) { phi[q]+=fe_values.shape_value(i, q)*ULocal[i];  }
-      else if (ck==1){ eta[q]+=fe_values.shape_value(i, q)*ULocal[i]; eta_conv[q]+=fe_values.shape_value(i, q)*ULocalConv[i];  }
-      else if (ck==2) {c[q]+=fe_values.shape_value(i, q)*ULocal[i]; c_conv[q]+=fe_values.shape_value(i, q)*ULocalConv[i]; }
+      if (ck==2) { phi[q]+=fe_values.shape_value(i, q)*ULocal[i];  }
+      else if (ck==3){ eta[q]+=fe_values.shape_value(i, q)*ULocal[i]; eta_conv[q]+=fe_values.shape_value(i, q)*ULocalConv[i];  }
+      else if (ck==4) {c[q]+=fe_values.shape_value(i, q)*ULocal[i]; c_conv[q]+=fe_values.shape_value(i, q)*ULocalConv[i]; }
 
       for (unsigned int j=0; j<dim; j++) {
 	if (ck==2) {

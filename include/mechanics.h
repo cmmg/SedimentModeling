@@ -57,7 +57,6 @@ template <class T, int dim>
       for (unsigned int j=0; j<dim; ++j){	
 	//small strain: E is epsilon
 	E[i][j] = 0.5*(gradU[q][i][j]+gradU[q][j][i]);
-
       }
     }
 
@@ -131,8 +130,8 @@ void residualForMechanics(FEValues<dim>& fe_values, FEFaceValues<dim>& fe_face_v
       // R = Grad(w)*P
       for (unsigned int q=0; q<n_q_points; ++q){
 	for (unsigned int d = 0; d < dim; d++){
-	  R[i] +=  fe_values.shape_grad(i, q)[d]*P[q][ck][d]*fe_values.JxW(q);
-	  R[i] += (eta[q])*(Pressure)*fe_values.shape_grad(i, q)[d]*fe_values.JxW(q);
+	  R[i] +=(eta[q])*fe_values.shape_grad(i, q)[d]*P[q][ck][d]*fe_values.JxW(q);
+	  //R[i] +=(eta[q])*(Pressure)*fe_values.shape_grad(i, q)[d]*fe_values.JxW(q);
 	}
       }
     }

@@ -452,7 +452,7 @@ namespace phaseField1
     //  GridGenerator::hyper_cube (triangulation, -10/2.0, 10/2.0, true);
     triangulation.refine_global (globalRefinementFactor);
     setup_system (); //inital set up
-    refine_grid(); //adative refinement
+    //    refine_grid(); //adative refinement
     
     
     pcout << "   Number of active cells:       "
@@ -477,7 +477,7 @@ namespace phaseField1
       int NSTEP=(currentTime/dt);
       if (NSTEP%PSTEPS==0) output_results(currentIncrement);
       pcout << std::endl;
-      refine_grid(); //adative refinement
+      //refine_grid(); //adative refinement
     }
     //computing_timer.print_summary ();
   }
