@@ -7,7 +7,7 @@
 #define minRefinementLevel (globalRefinementFactor-1)
 
 //time step controls
-#define TimeStep 1
+#define TimeStep 1.0
 #define TotalTime 1000*TimeStep
 #define PSTEPS 10
 
@@ -21,7 +21,7 @@
 #define delt 1.0
 #define gamma0 1.0
 #define mm 4.0
-#define em 0.125
+#define em 0.3
 #define angle0 0.0
 
 

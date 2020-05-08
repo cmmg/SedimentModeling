@@ -12,7 +12,7 @@
 
 //Mechanics implementation
 template <class T, int dim>
-  void evaluateStress(const FEValues<dim>& fe_values, FEFaceValues<dim> & fe_face_values, const unsigned int DOF, const Table<1, T>& ULocal, Table<3, T>& P,Table<3, T>& PFace , const deformationMap<T, dim>& defMap, typename DoFHandler<dim>::active_cell_iterator &cell){
+  void evaluateStress(const FEValues<dim>& fe_values, FEFaceValues<dim> & fe_face_values, const unsigned int DOF, const Table<1, T>& ULocal, Table<3, T>& P,Table<3, T>& PFace , /*const deformationMap<T, dim>& defMap,*/ typename DoFHandler<dim>::active_cell_iterator &cell){
 
   //number of quadrature poits
   unsigned int n_q_points= fe_values.n_quadrature_points;
@@ -48,7 +48,7 @@ template <class T, int dim>
     Table<2, Sacado::Fad::DFad<double> > Fe (dim, dim);
     for (unsigned int i=0; i<dim; ++i){
       for (unsigned int j=0; j<dim; ++j){
-	Fe[i][j]=defMap.F[q][i][j];
+	//Fe[i][j]=defMap.F[q][i][j];
       }
     }
     //E
@@ -96,7 +96,7 @@ template <class T, int dim>
 
 //mechanics residual implementation
 template <int dim>
-void residualForMechanics(FEValues<dim>& fe_values, FEFaceValues<dim>& fe_face_values, unsigned int DOF, Table<1, Sacado::Fad::DFad<double> >& ULocal, Table<1, double>& ULocalConv, Table<1, Sacado::Fad::DFad<double> >& R, deformationMap<Sacado::Fad::DFad<double>, dim>& defMap, typename DoFHandler<dim>::active_cell_iterator& cell, unsigned int CURRENT){
+void residualForMechanics(FEValues<dim>& fe_values, FEFaceValues<dim>& fe_face_values, unsigned int DOF, Table<1, Sacado::Fad::DFad<double> >& ULocal, Table<1, double>& ULocalConv, Table<1, Sacado::Fad::DFad<double> >& R, /*deformationMap<Sacado::Fad::DFad<double>, dim>& defMap,*/ typename DoFHandler<dim>::active_cell_iterator& cell, unsigned int CURRENT){
   unsigned int dofs_per_cell= fe_values.dofs_per_cell;
   unsigned int n_q_points= fe_values.n_quadrature_points;
 
@@ -122,7 +122,7 @@ void residualForMechanics(FEValues<dim>& fe_values, FEFaceValues<dim>& fe_face_v
   Table<3,Sacado::Fad::DFad<double> > P (n_q_points, dim, dim);
   Table<3,Sacado::Fad::DFad<double> > PFace (n_q_points, dim, dim);
   //evaluate stress
-  evaluateStress<Sacado::Fad::DFad<double>, dim>(fe_values, fe_face_values, DOF, ULocal, P,PFace, defMap, cell);
+  evaluateStress<Sacado::Fad::DFad<double>, dim>(fe_values, fe_face_values, DOF, ULocal, P,PFace, /*defMap*/ cell);
   
   //evaluate Residual
   for (unsigned int i=0; i<dofs_per_cell; ++i) {

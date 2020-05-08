@@ -28,11 +28,30 @@ namespace phaseField1
 	values(0)=0;	      
 	values(1)=0;
 	values(2)=0;
-	double dist= (sqrt(p[0]*p[0]+p[1]*p[1]) - problemWidth/4.0)/4.0;
+	
+	
+	double dist= (sqrt(p[0]*p[0]+p[1]*p[1]) - problemWidth/4.0)/4.0;     //most outside  /4.0 can be reduced to decrease thickness 
 	values(3)=1- 0.5*(1-std::tanh(dist)) ;
 	
 	double nn= 0.5*(1-std::tanh(dist)) ;
 	values(4)=0.082*16.0/(problemWidth/4.0) + 3.0*nn*nn-2*nn*nn*nn;
+	
+	
+
+	
+	//double dist= (1.0/2)*(sqrt(p[0]*p[0]+p[1]*p[1]) - problemWidth/16.0);
+	/*
+	double radii= problemWidth/4.0;
+	double dist = sqrt(p[0]*p[0]+p[1]*p[1]) - radii;
+	values(3)=1-0.5*(1-std::tanh(1.2*dist)) ;                                                                                                                                                           
+	double nn= 0.5*(1-std::tanh(1.2*dist)) ;
+	
+	values(4)=0.082*16.0/(problemWidth/4.0) + 3.0*nn*nn-2*nn*nn*nn;    
+	*/
+	
+
+
+	
     }
   };
   
@@ -204,8 +223,8 @@ namespace phaseField1
 	}
 
 	 //get defomration map                                                                                                               
-        deformationMap<Sacado::Fad::DFad<double>, dim> defMap(n_q_points);
-        getDeformationMap<Sacado::Fad::DFad<double>, dim>(fe_values, 0, ULocal, defMap, currentIteration);
+	//  deformationMap<Sacado::Fad::DFad<double>, dim> defMap(n_q_points);
+        //getDeformationMap<Sacado::Fad::DFad<double>, dim>(fe_values, 0, ULocal, defMap, currentIteration);
 		
 	//setup residual vector
 	Table<1, Sacado::Fad::DFad<double> > Rc(dofs_per_cell),Rm(dofs_per_cell),R(dofs_per_cell); 
@@ -216,7 +235,7 @@ namespace phaseField1
 	
 	//populate residual vector 
 	residualForChemo(fe_values, 0, fe_face_values, cell, dt, ULocal, ULocalConv, Rc, currentTime, totalTime);
-	residualForMechanics(fe_values,fe_face_values, 0, ULocal, ULocalConv, Rm, defMap, cell, currentIncrement);
+	residualForMechanics(fe_values,fe_face_values, 0, ULocal, ULocalConv, Rm, /*defMap,*/ cell, currentIncrement);
 	
 	for (unsigned int i=0; i<dofs_per_cell; ++i) {
 	  R[i]=Rc[i]+Rm[i];
