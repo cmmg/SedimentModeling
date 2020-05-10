@@ -70,6 +70,9 @@ namespace phaseField1
     void solve ();
     void refine_grid ();
     void output_results (const unsigned int increment);
+    void L2_projection();
+    void L2_setup_system();
+    void L2_solveIteration ();
     MPI_Comm                                  mpi_communicator;
     parallel::distributed::Triangulation<dim> triangulation;
     FESystem<dim>                             fe;
@@ -83,10 +86,20 @@ namespace phaseField1
     ConditionalOStream                        pcout;
     TimerOutput                               computing_timer;
 
+
+    ConstraintMatrix                          L2_constraints;
+    LA::MPI::SparseMatrix                     L2_Mass_matrix;
+    LA::MPI::Vector                           L2_locally_relevant_solution, L2_U,L2_UGhost;    
+    LA::MPI::Vector                           L2_system_rhs;
+    
+
+    
     //solution variables
     unsigned int currentIncrement, currentIteration;
     double totalTime, currentTime, dt;
     std::vector<std::string> nodal_solution_names; std::vector<DataComponentInterpretation::DataComponentInterpretation> nodal_data_component_interpretation;
+    std::vector<std::string> L2_nodal_solution_names; std::vector<DataComponentInterpretation::DataComponentInterpretation> L2_nodal_data_component_interpretation;
+
   };
 
   template <int dim>
@@ -115,10 +128,13 @@ namespace phaseField1
      nodal_solution_names.push_back("eta"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
      nodal_solution_names.push_back("c"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
-      //noda 
-     //for (unsigned int i=0; i<dim; ++i){
-     //nodal_solution_names.push_back("u"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_part_of_vector);
-     //}
+     L2_nodal_solution_names.push_back("Strain"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+     L2_nodal_solution_names.push_back("Stress"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+	  
+ L2_nodal_solution_names.push_back("Strain2"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+     L2_nodal_solution_names.push_back("Stress2"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+
+      L2_nodal_solution_names.push_back("Strain3"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
      
   }
   
@@ -133,9 +149,10 @@ namespace phaseField1
 
     
 
-    constraints.clear (); constraints2.clear ();
+    constraints.clear (); constraints2.clear ();  L2_constraints.clear();
     constraints.reinit (locally_relevant_dofs);
     constraints2.reinit (locally_relevant_dofs);
+    L2_constraints.reinit (locally_relevant_dofs);
     DoFTools::make_hanging_node_constraints (dof_handler, constraints);
     DoFTools::make_hanging_node_constraints (dof_handler, constraints2);
 
@@ -155,7 +172,8 @@ namespace phaseField1
     VectorTools::interpolate_boundary_values (dof_handler, 3, ZeroFunction<dim>(dim+3), constraints2, uBCX0);
 
     constraints.close ();
-    constraints2.close ();    
+    constraints2.close ();
+    L2_constraints.close ();
   }
   
   //Setup
@@ -185,6 +203,143 @@ namespace phaseField1
     SparsityTools::distribute_sparsity_pattern (dsp, dof_handler.n_locally_owned_dofs_per_processor(), mpi_communicator, locally_relevant_dofs);
     system_matrix.reinit (locally_owned_dofs, locally_owned_dofs, dsp, mpi_communicator);
   }
+
+
+  //Setup                                                                                                                                                                          
+  template <int dim>
+  void phaseField<dim>::L2_setup_system () {
+    TimerOutput::Scope t(computing_timer, "setup");
+    dof_handler.distribute_dofs (fe);
+    locally_owned_dofs = dof_handler.locally_owned_dofs ();
+    DoFTools::extract_locally_relevant_dofs (dof_handler,
+                                             locally_relevant_dofs);
+
+    L2_locally_relevant_solution.reinit (locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
+    //Non-ghost vectors
+    L2_U.reinit (locally_owned_dofs, mpi_communicator);
+
+    L2_system_rhs.reinit (locally_owned_dofs, mpi_communicator);
+    //Ghost vectors                                                                                                                                                               
+    L2_UGhost.reinit (locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
+
+    //call applyBoundaryConditions to setup constraints matrix needed for generating the sparsity pattern                                                                         
+    DynamicSparsityPattern L2_dsp (locally_relevant_dofs);
+    DoFTools::make_sparsity_pattern (dof_handler, L2_dsp, L2_constraints, false);
+    SparsityTools::distribute_sparsity_pattern (L2_dsp, dof_handler.n_locally_owned_dofs_per_processor(), mpi_communicator, locally_relevant_dofs);
+    L2_Mass_matrix.reinit (locally_owned_dofs, locally_owned_dofs, L2_dsp, mpi_communicator);
+  }
+
+
+
+  
+
+  //Assembly
+  template <int dim>
+  void phaseField<dim>::L2_projection (){
+    TimerOutput::Scope t(computing_timer, "L2");
+    L2_system_rhs=0.0; L2_Mass_matrix=0.0;
+    const QGauss<dim>  quadrature_formula(3);
+    const QGauss<dim-1> face_quadrature_formula (2);
+    FEValues<dim> fe_values (fe, quadrature_formula,
+                             update_values    |  update_gradients |
+                             update_quadrature_points |
+                             update_JxW_values);
+    //FEFaceValues<dim> fe_face_values (fe, face_quadrature_formula, update_values |update_gradients |update_quadrature_points | update_JxW_values | update_normal_vectors);
+
+    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
+    FullMatrix<double>   local_matrix (dofs_per_cell, dofs_per_cell);
+    Vector<double>       local_rhs (dofs_per_cell);
+    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
+    unsigned int n_q_points= fe_values.n_quadrature_points;
+
+    std::vector< std::vector< Tensor< 1, dim, double >>> quadGradU;   
+
+    for (unsigned int q=0; q<n_q_points; ++q){
+      quadGradU.push_back(std::vector< Tensor< 1, dim, double >>(5));      
+    }
+
+
+    
+    typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
+    for (; cell!=endc; ++cell)
+      if (cell->is_locally_owned()){
+        fe_values.reinit (cell);
+        local_matrix = 0; local_rhs = 0;
+        cell->get_dof_indices (local_dof_indices);
+
+	fe_values.get_function_gradients(UnGhost, quadGradU);	
+
+
+
+	//Calculate Elasticity Matrix, Elastic Strain, and Stress Matrix.
+	//Use only principal stress Sigma[0][0], Sigma[1][1]
+	//loop over quadrature points                                                                                                   
+	//loop over quadrature points
+	
+	  Table<3,double/*Sacado::Fad::DFad<double>*/ > Stress (n_q_points, dim, dim);
+	  Table<3, double/*Sacado::Fad::DFad<double>*/ > Strain(n_q_points,dim, dim);
+	  for (unsigned int q=0; q<n_q_points; ++q) {	    
+	  
+	  for (unsigned int i=0; i<dim; ++i){
+	    for (unsigned int j=0; j<dim; ++j){
+	      Strain[q][i][j] = 0.5*(quadGradU[q][i][j]+quadGradU[q][j][i]);
+	    }
+	  }
+
+	  //S
+	  //Material moduli
+	  double Y=elasticModulus, nu=PoissonsRatio;
+	  //Lame parameters
+	  double lambda=(nu*Y)/((1+nu)*(1-2*nu)), mu=Y/(2*(1+nu));
+	  //double lambda=LAM, mu=MU;
+	  Table<2, double /*Sacado::Fad::DFad<double>*/ > S(dim,dim);
+	  double C11=lambda+2*mu, C12=lambda, C44=mu;
+	  if(dim==2){
+	    //Plane strain model
+	    S[0][0]=C11*Strain[q][0][0]+C12*Strain[q][1][1];
+	    S[1][1]=C12*Strain[q][0][0]+C11*Strain[q][1][1];
+	    S[0][1]=S[1][0]=C44*Strain[q][0][1];
+	  }
+	  else throw "dim not equal to 2";
+	  // 
+	  
+	  for (unsigned int i=0; i<dim; ++i){
+	    for (unsigned int j=0; j<dim; ++j){
+	      //small strain
+	      Stress[q][i][j]=S[i][j];
+
+	    }
+	  }
+
+	}
+	
+	  for (unsigned int q=0; q<n_q_points; ++q) {
+	     for (unsigned int i=0; i<dofs_per_cell ; ++i) {
+	       unsigned int ci = fe_values.get_fe().system_to_component_index(i).first - 0;
+	       if (ci==0) local_rhs[i] +=fe_values.shape_value(i, q)*(Strain[q][0][0])*fe_values.JxW(q);
+	       if (ci==1) local_rhs[i] +=fe_values.shape_value(i, q)*(Stress[q][0][0])*fe_values.JxW(q);
+	       for (unsigned int j=0; j<dofs_per_cell ; ++j) {
+		 unsigned int cj = fe_values.get_fe().system_to_component_index(j).first - 0;
+		 if(ci==cj) local_matrix[i][j]+=fe_values.shape_value(i, q)*fe_values.shape_value(j, q)*fe_values.JxW(q);
+		 
+	       }
+	       
+	     }
+	  }
+	  	
+	L2_constraints.distribute_local_to_global (local_matrix, local_rhs, local_dof_indices, L2_Mass_matrix, L2_system_rhs);        
+      }
+    L2_Mass_matrix.compress (VectorOperation::add);
+    L2_system_rhs.compress (VectorOperation::add);
+
+    L2_solveIteration();
+    
+  }
+
+  
+
+  
+  
 
   //Assembly
   template <int dim>
@@ -318,7 +473,52 @@ namespace phaseField1
     dU = completely_distributed_solution; 
   }
     
+
+
+     
+  //Solve
+  template <int dim>
+ void phaseField<dim>::L2_solveIteration(){
+    TimerOutput::Scope t(computing_timer, "solve");
+    LA::MPI::Vector completely_distributed_solution (locally_owned_dofs, mpi_communicator);
+    /*      
+    //Iterative solvers from Petsc and Trilinos
+
+    SolverControl solver_control (dof_handler.n_dofs(), 1e-12);
+#ifdef USE_PETSC_LA
+    LA::SolverGMRES solver(solver_control, mpi_communicator);
+#else
+    LA::SolverGMRES solver(solver_control);
+#endif
+    LA::MPI::PreconditionAMG preconditioner;
+    LA::MPI::PreconditionAMG::AdditionalData data;
+#ifdef USE_PETSC_LA dof_handler.get_fe().n_components()
+    //data.symmetric_operator = true;
+#else
+    // Trilinos defaults are good 
+#endif
+    preconditioner.initialize(system_matrix, data);
+    solver.solve (system_matrix, completely_distributed_solution, system_rhs, preconditioner);
+    pcout << "   Solved in " << solver_control.last_step()
+          << " iterations." << std::endl;
+    */
+    //Direct solver MUMPS
+
+      
+    SolverControl cn;
+    PETScWrappers::SparseDirectMUMPS solver(cn, mpi_communicator);
+    solver.set_symmetric_mode(true);
+    solver.solve(L2_Mass_matrix, completely_distributed_solution, L2_system_rhs); 
+    L2_constraints.distribute (completely_distributed_solution);
+    L2_locally_relevant_solution = completely_distributed_solution;
+    L2_U = L2_locally_relevant_solution;
+    L2_UGhost=L2_U;
+  }
     
+
+  
+
+  
 
   /*
    template <int dim>
@@ -375,7 +575,9 @@ namespace phaseField1
     DataOut<dim> data_out;
     data_out.attach_dof_handler (dof_handler);
     data_out.add_data_vector (UnGhost, nodal_solution_names, DataOut<dim>::type_dof_data, nodal_data_component_interpretation);    
+    data_out.add_data_vector (L2_UGhost, L2_nodal_solution_names, DataOut<dim>::type_dof_data, L2_nodal_data_component_interpretation);
 
+    
     Vector<float> subdomain (triangulation.n_active_cells());
     for (unsigned int i=0; i<subdomain.size(); ++i)
       subdomain(i) = triangulation.locally_owned_subdomain();
@@ -507,6 +709,7 @@ namespace phaseField1
     //  GridGenerator::hyper_cube (triangulation, -10/2.0, 10/2.0, true);
     triangulation.refine_global (globalRefinementFactor);
     setup_system (); //inital set up
+    L2_setup_system();
     //    refine_grid(); //adative refinement
     
     
@@ -529,6 +732,7 @@ namespace phaseField1
     for (currentTime=0; currentTime<totalTime; currentTime+=dt){
       currentIncrement++;
       solve();
+      L2_projection();
       int NSTEP=(currentTime/dt);
       if (NSTEP%PSTEPS==0) output_results(currentIncrement);
       pcout << std::endl;
