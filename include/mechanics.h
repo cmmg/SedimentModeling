@@ -105,8 +105,8 @@ void residualForMechanics(FEValues<dim>& fe_values, FEFaceValues<dim>& fe_face_v
   
 
   dealii::Table<1,Sacado::Fad::DFad<double> > eta(n_q_points) ;
-  dealii::Table<1,Sacado::Fad::DFad<double> > ux(n_q_points) ;
-  dealii::Table<1,Sacado::Fad::DFad<double> > uy(n_q_points) ;
+  dealii::Table<2,Sacado::Fad::DFad<double> > ux(n_q_points,dim) ;
+  dealii::Table<2,Sacado::Fad::DFad<double> > uy(n_q_points,dim) ;
 
   for (unsigned int q=0; q<n_q_points; ++q) {
       eta[q]=0.0;      
@@ -114,11 +114,19 @@ void residualForMechanics(FEValues<dim>& fe_values, FEFaceValues<dim>& fe_face_v
        const unsigned int ck = fe_values.get_fe().system_to_component_index(i).first - DOF;       
        if (ck==3){ eta[q]+=fe_values.shape_value(i, q)*ULocal[i]; }            
        if (ck==0) {
-	 ux[q]+=fe_values.shape_grad(i, q)[ck]*ULocal[i];	 
+	 //ux[q]+=fe_values.shape_grad(i, q)[ck]*ULocal[i];	 
+	 for (unsigned int j=0; j<dim; ++j) {
+	   ux[q][j]+=fe_values.shape_grad(i, q)[j]*ULocal[i];	 
+	 }
        }
        
        if (ck==1) {
-	 uy[q]+=fe_values.shape_grad(i, q)[ck]*ULocal[i];
+	 //uy[q]+=fe_values.shape_grad(i, q)[ck]*ULocal[i];
+	  for (unsigned int j=0; j<dim; ++j) {
+	   uy[q][j]+=fe_values.shape_grad(i, q)[j]*ULocal[i];	 
+	 }
+	 
+
        }
        
        
@@ -158,7 +166,8 @@ void residualForMechanics(FEValues<dim>& fe_values, FEFaceValues<dim>& fe_face_v
       
      if (ck==3) {
        //Adding d_g/d_eta*(W+p*div u)
-       R[i]+= fe_values.shape_value(i, q)*(1.0)*(W[q]+PP*(ux[q]+uy[q]))*fe_values.JxW(q);
+       // R[i]+= fe_values.shape_value(i, q)*(1.0)*(W[q]+PP*(ux[q]+uy[q]))*fe_values.JxW(q);
+       R[i]+=(M_eta)*fe_values.shape_value(i, q)*(1.0)*(W[q]+PP*(ux[q][0]+uy[q][1]))*fe_values.JxW(q);
      }
      
     
