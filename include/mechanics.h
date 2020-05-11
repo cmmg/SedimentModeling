@@ -12,7 +12,7 @@
 
 //Mechanics implementation
 template <class T, int dim>
-  void evaluateStress(const FEValues<dim>& fe_values, FEFaceValues<dim> & fe_face_values, const unsigned int DOF, const Table<1, T>& ULocal, Table<3, T>& P,Table<3, T>& PFace , /*const deformationMap<T, dim>& defMap,*/ typename DoFHandler<dim>::active_cell_iterator &cell){
+  void evaluateStress(const FEValues<dim>& fe_values, FEFaceValues<dim> & fe_face_values, const unsigned int DOF, const Table<1, T>& ULocal, Table<3, T>& P,Table<3, T>& PFace , Table <1,T> W,/*const deformationMap<T, dim>& defMap,*/ typename DoFHandler<dim>::active_cell_iterator &cell){
 
   //number of quadrature poits
   unsigned int n_q_points= fe_values.n_quadrature_points;
@@ -80,18 +80,18 @@ template <class T, int dim>
 
   
     //P
+    //Calculate W= 0.5*e:C:e '
+    
     for (unsigned int i=0; i<dim; ++i){
       for (unsigned int j=0; j<dim; ++j){
 	//small strain
 	P[q][i][j]=S[i][j];
-
-	
+	W[q]+=0.5*E[i][j]*S[i][j];
       }
     }
     
   }
 
-  
 }
 
 //mechanics residual implementation
@@ -104,14 +104,28 @@ void residualForMechanics(FEValues<dim>& fe_values, FEFaceValues<dim>& fe_face_v
   const unsigned int faces_per_cell = GeometryInfo<dim>::faces_per_cell;
   
 
-  dealii::Table<1,Sacado::Fad::DFad<double> > phi(n_q_points), eta(n_q_points) , c(n_q_points);	
+  dealii::Table<1,Sacado::Fad::DFad<double> > eta(n_q_points) ;
+  dealii::Table<1,Sacado::Fad::DFad<double> > ux(n_q_points) ;
+  dealii::Table<1,Sacado::Fad::DFad<double> > uy(n_q_points) ;
+
   for (unsigned int q=0; q<n_q_points; ++q) {
       eta[q]=0.0;      
      for (unsigned int i=0; i<dofs_per_cell; ++i) {
-       const unsigned int ck = fe_values.get_fe().system_to_component_index(i).first - DOF;
-     if (ck==3){ eta[q]+=fe_values.shape_value(i, q)*ULocal[i]; }            
+       const unsigned int ck = fe_values.get_fe().system_to_component_index(i).first - DOF;       
+       if (ck==3){ eta[q]+=fe_values.shape_value(i, q)*ULocal[i]; }            
+       if (ck==0) {
+	 ux[q]+=fe_values.shape_grad(i, q)[ck]*ULocal[i];	 
+       }
+       
+       if (ck==1) {
+	 uy[q]+=fe_values.shape_grad(i, q)[ck]*ULocal[i];
+       }
+       
+       
+       }
      }
-  }
+     
+  
 
 
   
@@ -121,15 +135,19 @@ void residualForMechanics(FEValues<dim>& fe_values, FEFaceValues<dim>& fe_face_v
   //temporary arrays
   Table<3,Sacado::Fad::DFad<double> > P (n_q_points, dim, dim);
   Table<3,Sacado::Fad::DFad<double> > PFace (n_q_points, dim, dim);
+  Table<1, Sacado::Fad::DFad<double> > W (n_q_points);
+  
   //evaluate stress
-  evaluateStress<Sacado::Fad::DFad<double>, dim>(fe_values, fe_face_values, DOF, ULocal, P,PFace, /*defMap*/ cell);
+  evaluateStress<Sacado::Fad::DFad<double>, dim>(fe_values, fe_face_values, DOF, ULocal, P,PFace,W,/*defMap*/ cell);
   
   //evaluate Residual
   for (unsigned int i=0; i<dofs_per_cell; ++i) {
     const unsigned int ck = fe_values.get_fe().system_to_component_index(i).first - DOF;
-    if (ck>=0 && ck<2){
-      // R = Grad(w)*P    
-      for (unsigned int q=0; q<n_q_points; ++q){
+
+    for (unsigned int q=0; q<n_q_points; ++q){
+      if (ck>=0 && ck<2) {
+	// R = Grad(w)*P    
+     
 	R[i] +=(eta[q])*(PP)*fe_values.shape_grad(i, q)[ck]*fe_values.JxW(q);
 	
 	for (unsigned int d = 0; d < dim; d++){
@@ -137,9 +155,20 @@ void residualForMechanics(FEValues<dim>& fe_values, FEFaceValues<dim>& fe_face_v
 	  //R[i] +=(eta[q])*(Pressure)*fe_values.shape_grad(i, q)[d]*fe_values.JxW(q);
 	}
       }
+      
+     if (ck==3) {
+       //Adding d_g/d_eta*(W+p*div u)
+       R[i]+= fe_values.shape_value(i, q)*(1.0)*(W[q]+PP*(ux[q]+uy[q]))*fe_values.JxW(q);
+     }
+     
+    
     }
+    
+    
+    
+    
   }
-
+  
 
 
 }

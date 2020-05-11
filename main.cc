@@ -592,7 +592,7 @@ namespace phaseField1
     currentIteration=0;
     char buffer[200];
     while (true){
-      if (currentIteration>=8){sprintf(buffer, "maximum number of iterations reached without convergence. \n"); pcout<<buffer; break;}
+      if (currentIteration>=15){sprintf(buffer, "maximum number of iterations reached without convergence. \n"); pcout<<buffer; break;}
       if (current_norm>1/std::pow(tol,2)){sprintf(buffer, "\n norm is too high. \n\n"); pcout<<buffer; break; exit (1);}
       assemble_system();
       current_norm=system_rhs.l2_norm();

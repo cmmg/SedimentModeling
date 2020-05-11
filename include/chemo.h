@@ -88,7 +88,7 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
       else if(ck==3) {	
 	R[i] +=  (1.0/dt)*fe_values.shape_value(i, q)*(eta[q] - eta_conv[q])*fe_values.JxW(q);  
 	R[i] +=  (M_eta)*fe_values.shape_value(i, q)*(f_b-f_a)*(H_eta)*fe_values.JxW(q);
-
+	
 	for (unsigned int j = 0; j < dim; j++) {
 	  R[i]+= (M_eta)*fe_values.shape_grad(i, q)[j]*bigM[j]*fe_values.JxW(q);
 	  R[i]+=-(M_eta)*(delt*delt)*fe_values.shape_grad(i, q)[j]*phi_j[q][j]*fe_values.JxW(q);
