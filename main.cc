@@ -128,13 +128,13 @@ namespace phaseField1
      nodal_solution_names.push_back("eta"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
      nodal_solution_names.push_back("c"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
-     L2_nodal_solution_names.push_back("Strain"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
-     L2_nodal_solution_names.push_back("Stress"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+     L2_nodal_solution_names.push_back("Strain00"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+     L2_nodal_solution_names.push_back("Stress00"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 	  
- L2_nodal_solution_names.push_back("Strain2"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
-     L2_nodal_solution_names.push_back("Stress2"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+ L2_nodal_solution_names.push_back("Strain11"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+     L2_nodal_solution_names.push_back("Stress11"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
-      L2_nodal_solution_names.push_back("Strain3"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+      L2_nodal_solution_names.push_back("Stress10_01"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
      
   }
   
@@ -257,8 +257,6 @@ namespace phaseField1
     for (unsigned int q=0; q<n_q_points; ++q){
       quadGradU.push_back(std::vector< Tensor< 1, dim, double >>(5));      
     }
-
-
     
     typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
     for (; cell!=endc; ++cell)
@@ -268,29 +266,28 @@ namespace phaseField1
         cell->get_dof_indices (local_dof_indices);
 
 	fe_values.get_function_gradients(UnGhost, quadGradU);	
-
-
-
-	//Calculate Elasticity Matrix, Elastic Strain, and Stress Matrix.
-	//Use only principal stress Sigma[0][0], Sigma[1][1]
-	//loop over quadrature points                                                                                                   
-	//loop over quadrature points
 	
 	  Table<3,double/*Sacado::Fad::DFad<double>*/ > Stress (n_q_points, dim, dim);
 	  Table<3, double/*Sacado::Fad::DFad<double>*/ > Strain(n_q_points,dim, dim);
-	  for (unsigned int q=0; q<n_q_points; ++q) {	    
 	  
+	  //Table<3,double/*Sacado::Fad::DFad<double>*/ > dev_Stress (n_q_points,dim),dev_Strain(n_q_points,dim);
+	  
+	  double trace_Strain;
+	  for (unsigned int q=0; q<n_q_points; ++q) {	    
+	    trace_Strain=0;
 	  for (unsigned int i=0; i<dim; ++i){
 	    for (unsigned int j=0; j<dim; ++j){
 	      Strain[q][i][j] = 0.5*(quadGradU[q][i][j]+quadGradU[q][j][i]);
 	    }
 	  }
 
+	
 	  //S
 	  //Material moduli
 	  double Y=elasticModulus, nu=PoissonsRatio;
 	  //Lame parameters
 	  double lambda=(nu*Y)/((1+nu)*(1-2*nu)), mu=Y/(2*(1+nu));
+	  double kappa=lambda+(2.0/3.0)*mu ;
 	  //double lambda=LAM, mu=MU;
 	  Table<2, double /*Sacado::Fad::DFad<double>*/ > S(dim,dim);
 	  double C11=lambda+2*mu, C12=lambda, C44=mu;
@@ -302,6 +299,9 @@ namespace phaseField1
 	  }
 	  else throw "dim not equal to 2";
 	  // 
+	  
+
+
 	  
 	  for (unsigned int i=0; i<dim; ++i){
 	    for (unsigned int j=0; j<dim; ++j){
@@ -318,6 +318,12 @@ namespace phaseField1
 	       unsigned int ci = fe_values.get_fe().system_to_component_index(i).first - 0;
 	       if (ci==0) local_rhs[i] +=fe_values.shape_value(i, q)*(Strain[q][0][0])*fe_values.JxW(q);
 	       if (ci==1) local_rhs[i] +=fe_values.shape_value(i, q)*(Stress[q][0][0])*fe_values.JxW(q);
+	       if (ci==2) local_rhs[i] +=fe_values.shape_value(i, q)*(Strain[q][1][1])*fe_values.JxW(q);
+	       if (ci==3) local_rhs[i] +=fe_values.shape_value(i, q)*(Stress[q][1][1])*fe_values.JxW(q);
+	       if (ci==4) local_rhs[i] +=fe_values.shape_value(i, q)*(Stress[q][1][0])*fe_values.JxW(q);
+	       
+
+
 	       for (unsigned int j=0; j<dofs_per_cell ; ++j) {
 		 unsigned int cj = fe_values.get_fe().system_to_component_index(j).first - 0;
 		 if(ci==cj) local_matrix[i][j]+=fe_values.shape_value(i, q)*fe_values.shape_value(j, q)*fe_values.JxW(q);

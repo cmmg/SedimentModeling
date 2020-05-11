@@ -7,9 +7,9 @@
 #define minRefinementLevel (globalRefinementFactor-1)
 
 //time step controls
-#define TimeStep 1.0
+#define TimeStep 50.0
 #define TotalTime 1000*TimeStep
-#define PSTEPS 10
+#define PSTEPS 50
 
 //output controls
 #define outputFileName "solution"
