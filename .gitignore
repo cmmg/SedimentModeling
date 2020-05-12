@@ -1,0 +1,32 @@
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.pyc
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.vtk
+*.txt
+*~
+*.vts
+*tgz
+CMakeFiles*
+CMakeCache.txt
+cmake_install.cmake
+
+*avi
+*mpeg
+*mp4
+main
+*.o*
+configForce.o*
+build
+.DS_Store
+*#
