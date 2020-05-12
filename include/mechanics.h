@@ -96,7 +96,7 @@ template <class T, int dim>
 
 //mechanics residual implementation
 template <int dim>
-void residualForMechanics(FEValues<dim>& fe_values, FEFaceValues<dim>& fe_face_values, unsigned int DOF, Table<1, Sacado::Fad::DFad<double> >& ULocal, Table<1, double>& ULocalConv, Table<1, Sacado::Fad::DFad<double> >& R, /*deformationMap<Sacado::Fad::DFad<double>, dim>& defMap,*/ typename DoFHandler<dim>::active_cell_iterator& cell, unsigned int CURRENT){
+void residualForMechanics(FEValues<dim>& fe_values, FEFaceValues<dim>& fe_face_values, unsigned int DOF, Table<1, Sacado::Fad::DFad<double> >& ULocal, Table<1, double>& ULocalConv, Table<1, Sacado::Fad::DFad<double> >& R, /*deformationMap<Sacado::Fad::DFad<double>, dim>& defMap,*/ typename DoFHandler<dim>::active_cell_iterator& cell, unsigned int CURRENT,double currentTime){
   unsigned int dofs_per_cell= fe_values.dofs_per_cell;
   unsigned int n_q_points= fe_values.n_quadrature_points;
 
@@ -139,7 +139,7 @@ void residualForMechanics(FEValues<dim>& fe_values, FEFaceValues<dim>& fe_face_v
   
 
   double PP=0;
-  if (CURRENT > 10) {PP=Pressure;}
+  if (CURRENT > 10) {PP=PressureMin+(PressureMax-PressureMin)*(currentTime/TotalTime);}
   //temporary arrays
   Table<3,Sacado::Fad::DFad<double> > P (n_q_points, dim, dim);
   Table<3,Sacado::Fad::DFad<double> > PFace (n_q_points, dim, dim);

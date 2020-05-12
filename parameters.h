@@ -25,8 +25,8 @@
 #define angle0 0.0
 
 
-#define Pressure 0.001
-
+#define PressureMin 0.001
+#define PressureMax 0.001
 
 //mechanics properties                                                                                                                      
 #define elasticModulus (1.0)*(pow(10.0,0.0))

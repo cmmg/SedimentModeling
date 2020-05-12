@@ -429,7 +429,7 @@ namespace phaseField1
 	
 	//populate residual vector 
 	residualForChemo(fe_values, 0, fe_face_values, cell, dt, ULocal, ULocalConv, Rc, currentTime, totalTime);
-	residualForMechanics(fe_values,fe_face_values, 0, ULocal, ULocalConv, Rm, /*defMap,*/ cell, currentIncrement);
+	residualForMechanics(fe_values,fe_face_values, 0, ULocal, ULocalConv, Rm, /*defMap,*/ cell, currentIncrement,currentTime);
 	
 	for (unsigned int i=0; i<dofs_per_cell; ++i) {
 	  R[i]=Rc[i]+Rm[i];
