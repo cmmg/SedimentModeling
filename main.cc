@@ -1,8 +1,8 @@
 //
 //Computational Mechanics and Multiphysics Group @ UW-Madison
-//Basic framework for Phase Field (Cahn-Hilliard mixed formulation)
-//Created May 2018
-//authors: rudraa (2018)
+//Code for Bubble propogation which includes evolution of concentration,shape and mechanics 
+//Created May 2020
+//authors: kpbhagat(2020) rudraa (2018)
 //
 
 //deal.II headers
