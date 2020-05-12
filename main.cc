@@ -33,7 +33,7 @@ namespace phaseField1
 	double dist= (sqrt(p[0]*p[0]+p[1]*p[1]) - problemWidth/4.0)/4.0;     //most outside  /4.0 can be reduced to decrease thickness 
 	values(3)=1- 0.5*(1-std::tanh(dist)) ;
 	
-	double nn= 0.5*(1-std::tanh(dist)) ;
+	double nn=0.5*(1-std::tanh(dist)) ;
 	values(4)=0.082*16.0/(problemWidth/4.0) + 3.0*nn*nn-2*nn*nn*nn;
 	
 	

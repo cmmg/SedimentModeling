@@ -7,7 +7,7 @@
 #define minRefinementLevel (globalRefinementFactor-2)
 
 //time step controls
-#define TimeStep 50.0
+#define TimeStep 1.0
 #define TotalTime 1000*TimeStep
 #define PSTEPS 50 
 
@@ -17,7 +17,7 @@
 
 //parameters
 #define M_c 1.0
-#define M_eta 0.00025
+#define M_eta 0.0025
 #define delt 1.0
 #define gamma0 1.0
 
@@ -34,8 +34,8 @@
 #define angle0 0.0
 
 //Pressure parameters
-#define PressureMin 0.001
-#define PressureMax 0.001
+#define PressureMin 0.000
+#define PressureMax 0.000
 
 //can be changed to Pressuremax 0.01 and make TimeStep 1.0 to see Pressure as a function of time.
 
@@ -45,3 +45,5 @@
 #define PoissonsRatio 0.3
 
 
+//helium source term
+#define sourceQ pow(10.0,-4)

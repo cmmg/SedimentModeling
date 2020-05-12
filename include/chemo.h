@@ -51,7 +51,10 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
   }
 
   
-     
+
+   //Helium Source
+   double SourceHelium = sourceQ;
+   
   //evaluate Residual
   for (unsigned int i=0; i<dofs_per_cell; ++i) {
     const unsigned int ck = fe_values.get_fe().system_to_component_index(i).first - DOF;
@@ -97,7 +100,13 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF, FEFaceValues<d
 
       else if(ck==4) {
 	R[i] +=  (1.0/dt)*fe_values.shape_value(i, q)*(c[q] - c_conv[q])*fe_values.JxW(q);
+
+	//adding source term
+	if (c_conv[q]>=0.9) {
+	  R[i] += -(1.0)*fe_values.shape_value(i, q)*(1.0)*(SourceHelium)*fe_values.JxW(q);
+	}
 	
+	  
 	for (unsigned int j = 0; j < dim; j++) {
 	  R[i]+= (M_c)*fe_values.shape_grad(i, q)[j]*(f_a_c_c*(1.0-HH)+f_b_c_c*HH)*(c_j[q][j])*fe_values.JxW(q);
 	  R[i]+= (M_c)*fe_values.shape_grad(i, q)[j]*(f_b_c-f_a_c)*(H_eta)*(eta_j[q][j])*fe_values.JxW(q); 
