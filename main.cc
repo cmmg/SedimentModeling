@@ -11,6 +11,7 @@
 #include "parameters.h"
 //physics headers
 #include "include/chemo.h"
+#include "include/mechanics.h"
 
 //Namespace
 namespace phaseField1
@@ -21,14 +22,36 @@ namespace phaseField1
   template <int dim>
   class InitalConditions: public Function<dim>{
   public:
-    InitalConditions (): Function<dim>(3){std::srand(5);}
+    InitalConditions (): Function<dim>(DIMS){std::srand(5);}
     void vector_value (const Point<dim>   &p, Vector<double>   &values) const{
-        Assert (values.size() == 3, ExcDimensionMismatch (values.size(), 3));	
+        Assert (values.size() == DIMS, ExcDimensionMismatch (values.size(), DIMS));	
 	values(0)=0;	      
-	double dist= (sqrt(p[0]*p[0]+p[1]*p[1]) - problemWidth/4.0)/4.0;
-	values(1)= 0.5*(1-std::tanh(dist)) ;
+	values(1)=0;
+	values(2)=0;
+	
+	
+	double dist= (sqrt(p[0]*p[0]+p[1]*p[1]) - problemWidth/4.0)/4.0;     //most outside  /4.0 can be reduced to decrease thickness 
+	values(3)=1- 0.5*(1-std::tanh(dist)) ;
+	
 	double nn= 0.5*(1-std::tanh(dist)) ;
-	values(2)=0.082*16.0/(problemWidth/4.0) + 3.0*nn*nn-2*nn*nn*nn;
+	values(4)=0.082*16.0/(problemWidth/4.0) + 3.0*nn*nn-2*nn*nn*nn;
+	
+	
+
+	
+	//double dist= (1.0/2)*(sqrt(p[0]*p[0]+p[1]*p[1]) - problemWidth/16.0);
+	/*
+	double radii= problemWidth/4.0;
+	double dist = sqrt(p[0]*p[0]+p[1]*p[1]) - radii;
+	values(3)=1-0.5*(1-std::tanh(1.2*dist)) ;                                                                                                                                                           
+	double nn= 0.5*(1-std::tanh(1.2*dist)) ;
+	
+	values(4)=0.082*16.0/(problemWidth/4.0) + 3.0*nn*nn-2*nn*nn*nn;    
+	*/
+	
+
+
+	
     }
   };
   
@@ -39,7 +62,7 @@ namespace phaseField1
     ~phaseField ();
     void run ();
 
-  private:
+   private:
     void applyBoundaryConditions(const unsigned int increment);
     void setup_system ();
     void assemble_system ();
@@ -47,23 +70,36 @@ namespace phaseField1
     void solve ();
     void refine_grid ();
     void output_results (const unsigned int increment);
+    void L2_projection();
+    void L2_setup_system();
+    void L2_solveIteration ();
     MPI_Comm                                  mpi_communicator;
     parallel::distributed::Triangulation<dim> triangulation;
     FESystem<dim>                             fe;
     DoFHandler<dim>                           dof_handler;
     IndexSet                                  locally_owned_dofs;
     IndexSet                                  locally_relevant_dofs;
-    ConstraintMatrix                          constraints;
+    ConstraintMatrix                          constraints,constraints2;
     LA::MPI::SparseMatrix                     system_matrix;
     LA::MPI::Vector                           locally_relevant_solution, U, Un, UGhost, UnGhost, dU;
     LA::MPI::Vector                           system_rhs;
     ConditionalOStream                        pcout;
     TimerOutput                               computing_timer;
 
+
+    ConstraintMatrix                          L2_constraints;
+    LA::MPI::SparseMatrix                     L2_Mass_matrix;
+    LA::MPI::Vector                           L2_locally_relevant_solution, L2_U,L2_UGhost;    
+    LA::MPI::Vector                           L2_system_rhs;
+    
+
+    
     //solution variables
     unsigned int currentIncrement, currentIteration;
     double totalTime, currentTime, dt;
     std::vector<std::string> nodal_solution_names; std::vector<DataComponentInterpretation::DataComponentInterpretation> nodal_data_component_interpretation;
+    std::vector<std::string> L2_nodal_solution_names; std::vector<DataComponentInterpretation::DataComponentInterpretation> L2_nodal_data_component_interpretation;
+
   };
 
   template <int dim>
@@ -73,7 +109,7 @@ namespace phaseField1
                    typename Triangulation<dim>::MeshSmoothing
                    (Triangulation<dim>::smoothing_on_refinement |
                     Triangulation<dim>::smoothing_on_coarsening)),
-    fe(FE_Q<dim>(1),3),
+    fe(FE_Q<dim>(1),DIMS),
     dof_handler (triangulation),
     pcout (std::cout, (Utilities::MPI::this_mpi_process(mpi_communicator)== 0)),
     computing_timer (mpi_communicator, pcout, TimerOutput::summary, TimerOutput::wall_times){
@@ -82,14 +118,24 @@ namespace phaseField1
     currentIncrement=0; currentTime=0;
 
     //nodal Solution names
+    for (unsigned int i=0; i<dim; ++i){
+      nodal_solution_names.push_back("u"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_part_of_vector);
+    }
+
+
     nodal_solution_names.push_back("phi"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
      nodal_solution_names.push_back("eta"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
-
      nodal_solution_names.push_back("c"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
-    
 
- 
+     L2_nodal_solution_names.push_back("VonMStrain"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+     L2_nodal_solution_names.push_back("VonMStress"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+	  
+ L2_nodal_solution_names.push_back("Strain00"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+     L2_nodal_solution_names.push_back("Stress00"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+
+      L2_nodal_solution_names.push_back("Stress10_01"); L2_nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+     
   }
   
   template <int dim>
@@ -100,14 +146,34 @@ namespace phaseField1
   //Apply boundary conditions
   template <int dim>
   void phaseField<dim>::applyBoundaryConditions(const unsigned int increment){
-    constraints.clear (); 
+
+    
+
+    constraints.clear (); constraints2.clear ();  L2_constraints.clear();
     constraints.reinit (locally_relevant_dofs);
+    constraints2.reinit (locally_relevant_dofs);
+    L2_constraints.reinit (locally_relevant_dofs);
     DoFTools::make_hanging_node_constraints (dof_handler, constraints);
+    DoFTools::make_hanging_node_constraints (dof_handler, constraints2);
+
+    //Setup boundary conditions                                                                                                                                                                           
+    std::vector<bool> uBCX0 (dim+3, false); uBCX0[0]=true;uBCX0[1]=true;                                                                                                                                                
+    VectorTools::interpolate_boundary_values (dof_handler, 0, ZeroFunction<dim>(dim+3), constraints, uBCX0);
+    VectorTools::interpolate_boundary_values (dof_handler, 0, ZeroFunction<dim>(dim+3), constraints2, uBCX0);
     
-    //Setup boundary conditions
-    //No Dirchlet BC are necessary for the parabolic problem
+
+    VectorTools::interpolate_boundary_values (dof_handler, 1, ZeroFunction<dim>(dim+3), constraints, uBCX0);
+    VectorTools::interpolate_boundary_values (dof_handler, 1, ZeroFunction<dim>(dim+3), constraints2, uBCX0);
     
+    VectorTools::interpolate_boundary_values (dof_handler, 2, ZeroFunction<dim>(dim+3), constraints, uBCX0);
+    VectorTools::interpolate_boundary_values (dof_handler, 2, ZeroFunction<dim>(dim+3), constraints2, uBCX0);
+ 
+    VectorTools::interpolate_boundary_values (dof_handler, 3, ZeroFunction<dim>(dim+3), constraints, uBCX0);
+    VectorTools::interpolate_boundary_values (dof_handler, 3, ZeroFunction<dim>(dim+3), constraints2, uBCX0);
+
     constraints.close ();
+    constraints2.close ();
+    L2_constraints.close ();
   }
   
   //Setup
@@ -133,10 +199,186 @@ namespace phaseField1
     applyBoundaryConditions(0);
     
     DynamicSparsityPattern dsp (locally_relevant_dofs);
-    DoFTools::make_sparsity_pattern (dof_handler, dsp, constraints, false);
+    DoFTools::make_sparsity_pattern (dof_handler, dsp, constraints2, false);
     SparsityTools::distribute_sparsity_pattern (dsp, dof_handler.n_locally_owned_dofs_per_processor(), mpi_communicator, locally_relevant_dofs);
     system_matrix.reinit (locally_owned_dofs, locally_owned_dofs, dsp, mpi_communicator);
   }
+
+
+  //Setup                                                                                                                                                                          
+  template <int dim>
+  void phaseField<dim>::L2_setup_system () {
+    TimerOutput::Scope t(computing_timer, "setup");
+    dof_handler.distribute_dofs (fe);
+    locally_owned_dofs = dof_handler.locally_owned_dofs ();
+    DoFTools::extract_locally_relevant_dofs (dof_handler,
+                                             locally_relevant_dofs);
+
+    L2_locally_relevant_solution.reinit (locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
+    //Non-ghost vectors
+    L2_U.reinit (locally_owned_dofs, mpi_communicator);
+
+    L2_system_rhs.reinit (locally_owned_dofs, mpi_communicator);
+    //Ghost vectors                                                                                                                                                               
+    L2_UGhost.reinit (locally_owned_dofs, locally_relevant_dofs, mpi_communicator);
+
+    //call applyBoundaryConditions to setup constraints matrix needed for generating the sparsity pattern                                                                         
+    DynamicSparsityPattern L2_dsp (locally_relevant_dofs);
+    DoFTools::make_sparsity_pattern (dof_handler, L2_dsp, L2_constraints, false);
+    SparsityTools::distribute_sparsity_pattern (L2_dsp, dof_handler.n_locally_owned_dofs_per_processor(), mpi_communicator, locally_relevant_dofs);
+    L2_Mass_matrix.reinit (locally_owned_dofs, locally_owned_dofs, L2_dsp, mpi_communicator);
+  }
+
+
+
+  
+
+  //Assembly
+  template <int dim>
+  void phaseField<dim>::L2_projection (){
+    TimerOutput::Scope t(computing_timer, "L2");
+    L2_system_rhs=0.0; L2_Mass_matrix=0.0;
+    const QGauss<dim>  quadrature_formula(3);
+    const QGauss<dim-1> face_quadrature_formula (2);
+    FEValues<dim> fe_values (fe, quadrature_formula,
+                             update_values    |  update_gradients |
+                             update_quadrature_points |
+                             update_JxW_values);
+    //FEFaceValues<dim> fe_face_values (fe, face_quadrature_formula, update_values |update_gradients |update_quadrature_points | update_JxW_values | update_normal_vectors);
+
+    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
+    FullMatrix<double>   local_matrix (dofs_per_cell, dofs_per_cell);
+    Vector<double>       local_rhs (dofs_per_cell);
+    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
+    unsigned int n_q_points= fe_values.n_quadrature_points;
+
+    std::vector<Vector<double> > quadSolutions;
+    std::vector< std::vector< Tensor< 1, dim, double >>> quadGradU;   
+    
+    for (unsigned int q=0; q<n_q_points; ++q){
+      quadSolutions.push_back(dealii::Vector<double>(5)); //2 since there are two degree of freedom per cell
+    }
+    
+    
+    for (unsigned int q=0; q<n_q_points; ++q){
+      quadGradU.push_back(std::vector< Tensor< 1, dim, double >>(5));      
+    }
+    
+    typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
+    for (; cell!=endc; ++cell)
+      if (cell->is_locally_owned()){
+        fe_values.reinit (cell);
+        local_matrix = 0; local_rhs = 0;
+        cell->get_dof_indices (local_dof_indices);
+
+	fe_values.get_function_values(UnGhost, quadSolutions);
+	fe_values.get_function_gradients(UnGhost, quadGradU);	
+	
+	  Table<3,double/*Sacado::Fad::DFad<double>*/ > Stress (n_q_points, dim, dim);
+	  Table<3, double/*Sacado::Fad::DFad<double>*/ > Strain(n_q_points,dim, dim);
+	 
+	  Table<3,double/*Sacado::Fad::DFad<double>*/ > dev_Stress (n_q_points,dim,dim);
+	  Table<3,double/*Sacado::Fad::DFad<double>*/ > dev_Strain(n_q_points,dim,dim);
+	  Table<1,double/*Sacado::Fad::DFad<double>*/ > VonMises_Strain(n_q_points);
+	  Table<1,double/*Sacado::Fad::DFad<double>*/ > VonMises_Stress(n_q_points);
+	  
+	  for (unsigned int q=0; q<n_q_points; ++q) {	    
+	    double trace_Strain=0;  
+	  for (unsigned int i=0; i<dim; ++i){
+	    for (unsigned int j=0; j<dim; ++j){
+	      Strain[q][i][j] = 0.5*(quadGradU[q][i][j]+quadGradU[q][j][i]);
+	    }
+	    trace_Strain+=Strain[q][i][i];
+	  }
+
+	   //S
+	  //Material moduli
+	  double Y=elasticModulus, nu=PoissonsRatio;
+	  //Lame parameters
+	  double lambda=(nu*Y)/((1+nu)*(1-2*nu)), mu=Y/(2*(1+nu));
+	  
+
+	  //Calculate devaitoric strain
+	  for (unsigned int i=0; i<dim; ++i){
+	    for (unsigned int j=0; j<dim; ++j){
+	      dev_Strain[q][i][j] = Strain[q][i][j] -(1.0/3.0)*(i==j)*trace_Strain;
+	      dev_Stress[q][i][j]= (Y/(1.0+nu))*dev_Strain[q][i][j];
+	    }
+	  }
+
+	 
+	 
+	  //Hooks law for the Stress,Strain/
+	  
+	  //Table<2, double /*Sacado::Fad::DFad<double>*/ > S(dim,dim);
+	  /*  double C11=lambda+2*mu, C12=lambda, C44=mu;
+	  if(dim==2){
+	    //Plane strain model
+	    S[0][0]=C11*Strain[q][0][0]+C12*Strain[q][1][1];
+	    S[1][1]=C12*Strain[q][0][0]+C11*Strain[q][1][1];
+	    S[0][1]=S[1][0]=C44*Strain[q][0][1];
+	  }
+	  else throw "dim not equal to 2";
+	  */
+
+	  //calculate devaitoric strain using hooks law.
+	
+	  //Calcaulte Von Mises Stress Strain
+
+	  for (unsigned int i=0; i<dim; ++i){
+	    for (unsigned int j=0; j<dim; ++j){
+	      VonMises_Strain[q]+=(3.0)*dev_Strain[q][i][j]*dev_Strain[q][i][j];
+	    }
+	     VonMises_Strain[q]+=(3.0/2.0)*dev_Strain[q][i][i]*dev_Strain[q][i][i];
+	  }
+
+	  VonMises_Strain[q]+=quadSolutions[q][3]*(2.0/3.0)*std::sqrt(VonMises_Strain[q]);
+
+	  
+	  for (unsigned int i=0; i<dim; ++i){
+	    for (unsigned int j=0; j<dim; ++j){
+	      //small strain
+	      //Stress[q][i][j]=S[i][j];
+	      VonMises_Stress[q]+=(3.0/2.0)*dev_Stress[q][i][j]*dev_Stress[q][i][j];
+	    }
+	  }
+	  VonMises_Stress[q]=quadSolutions[q][3]*std::sqrt(VonMises_Stress[q]);
+
+	}
+	
+	  for (unsigned int q=0; q<n_q_points; ++q) {
+	     for (unsigned int i=0; i<dofs_per_cell ; ++i) {
+	       unsigned int ci = fe_values.get_fe().system_to_component_index(i).first - 0;
+	       if (ci==0) local_rhs[i] +=fe_values.shape_value(i, q)*(VonMises_Strain[q])*fe_values.JxW(q);
+	       if (ci==1) local_rhs[i] +=fe_values.shape_value(i, q)*(VonMises_Stress[q])*fe_values.JxW(q);
+	       if (ci==2) local_rhs[i] +=fe_values.shape_value(i, q)*(Strain[q][0][0])*fe_values.JxW(q);
+	       if (ci==3) local_rhs[i] +=fe_values.shape_value(i, q)*(Stress[q][1][1])*fe_values.JxW(q);
+	       if (ci==4) local_rhs[i] +=fe_values.shape_value(i, q)*(Stress[q][1][0])*fe_values.JxW(q);
+	       
+
+
+	       for (unsigned int j=0; j<dofs_per_cell ; ++j) {
+		 unsigned int cj = fe_values.get_fe().system_to_component_index(j).first - 0;
+		 if(ci==cj) local_matrix[i][j]+=fe_values.shape_value(i, q)*fe_values.shape_value(j, q)*fe_values.JxW(q);
+		 
+	       }
+	       
+	     }
+	  }
+	  	
+	L2_constraints.distribute_local_to_global (local_matrix, local_rhs, local_dof_indices, L2_Mass_matrix, L2_system_rhs);        
+      }
+    L2_Mass_matrix.compress (VectorOperation::add);
+    L2_system_rhs.compress (VectorOperation::add);
+
+    L2_solveIteration();
+    
+  }
+
+  
+
+  
+  
 
   //Assembly
   template <int dim>
@@ -149,7 +391,9 @@ namespace phaseField1
                              update_values    |  update_gradients |
                              update_quadrature_points |
                              update_JxW_values);
-    FEFaceValues<dim> fe_face_values (fe, face_quadrature_formula, update_values | update_quadrature_points | update_JxW_values | update_normal_vectors);
+    FEFaceValues<dim> fe_face_values (fe, face_quadrature_formula, update_values |update_gradients |update_quadrature_points | update_JxW_values | update_normal_vectors);
+
+    
     const unsigned int   dofs_per_cell = fe.dofs_per_cell;
     FullMatrix<double>   local_matrix (dofs_per_cell, dofs_per_cell);
     Vector<double>       local_rhs (dofs_per_cell);
@@ -172,12 +416,25 @@ namespace phaseField1
 	  ULocalConv[i]= UnGhost(local_dof_indices[i]);
 	}
 
+	 //get defomration map                                                                                                               
+	//  deformationMap<Sacado::Fad::DFad<double>, dim> defMap(n_q_points);
+        //getDeformationMap<Sacado::Fad::DFad<double>, dim>(fe_values, 0, ULocal, defMap, currentIteration);
+		
 	//setup residual vector
-	Table<1, Sacado::Fad::DFad<double> > R(dofs_per_cell); 
-	for (unsigned int i=0; i<dofs_per_cell; ++i) {R[i]=0.0;}
+	Table<1, Sacado::Fad::DFad<double> > Rc(dofs_per_cell),Rm(dofs_per_cell),R(dofs_per_cell); 
+	for (unsigned int i=0; i<dofs_per_cell; ++i) {R[i]=0.0;
+	  Rc[i]=0.0;
+	  Rm[i]=0.0;
+	}
 	
 	//populate residual vector 
-	residualForChemo(fe_values, 0, fe_face_values, cell, dt, ULocal, ULocalConv, R, currentTime, totalTime);
+	residualForChemo(fe_values, 0, fe_face_values, cell, dt, ULocal, ULocalConv, Rc, currentTime, totalTime);
+	residualForMechanics(fe_values,fe_face_values, 0, ULocal, ULocalConv, Rm, /*defMap,*/ cell, currentIncrement,currentTime);
+	
+	for (unsigned int i=0; i<dofs_per_cell; ++i) {
+	  R[i]=Rc[i]+Rm[i];
+	}
+	
 	
 	//evaluate Residual(R) and Jacobian(R')
 	for (unsigned int i=0; i<dofs_per_cell; ++i) {
@@ -189,7 +446,14 @@ namespace phaseField1
 	  //R
 	  local_rhs(i) = -R[i].val();
 	}
-	constraints.distribute_local_to_global (local_matrix, local_rhs, local_dof_indices, system_matrix, system_rhs);
+
+	if ((currentIteration==0)){
+          constraints.distribute_local_to_global (local_matrix, local_rhs, local_dof_indices, system_matrix, system_rhs);
+        }
+        else{
+          constraints2.distribute_local_to_global (local_matrix, local_rhs, local_dof_indices, system_matrix, system_rhs);
+        }
+	
       }
     system_matrix.compress (VectorOperation::add);
     system_rhs.compress (VectorOperation::add);
@@ -198,7 +462,7 @@ namespace phaseField1
   }
   
 
-  /* 
+   
   //Solve
   template <int dim>
  void phaseField<dim>::solveIteration(){
@@ -206,6 +470,7 @@ namespace phaseField1
     LA::MPI::Vector completely_distributed_solution (locally_owned_dofs, mpi_communicator);
     /*      
     //Iterative solvers from Petsc and Trilinos
+
     SolverControl solver_control (dof_handler.n_dofs(), 1e-12);
 #ifdef USE_PETSC_LA
     LA::SolverGMRES solver(solver_control, mpi_communicator);
@@ -226,18 +491,75 @@ namespace phaseField1
     */
     //Direct solver MUMPS
 
-    /*  
+      
     SolverControl cn;
     PETScWrappers::SparseDirectMUMPS solver(cn, mpi_communicator);
     solver.set_symmetric_mode(false);
     solver.solve(system_matrix, completely_distributed_solution, system_rhs);
-    constraints.distribute (completely_distributed_solution);
+
+    //                                                                                                                                                                             
+    if ((currentIteration==0)){
+      constraints.distribute (completely_distributed_solution);
+    }
+    else{
+      constraints2.distribute (completely_distributed_solution);
+    }
+    
+    //constraints.distribute (completely_distributed_solution);
+
+
     locally_relevant_solution = completely_distributed_solution;
     dU = completely_distributed_solution; 
   }
     
-*/
+
+
+     
+  //Solve
+  template <int dim>
+ void phaseField<dim>::L2_solveIteration(){
+    TimerOutput::Scope t(computing_timer, "solve");
+    LA::MPI::Vector completely_distributed_solution (locally_owned_dofs, mpi_communicator);
+    /*      
+    //Iterative solvers from Petsc and Trilinos
+
+    SolverControl solver_control (dof_handler.n_dofs(), 1e-12);
+#ifdef USE_PETSC_LA
+    LA::SolverGMRES solver(solver_control, mpi_communicator);
+#else
+    LA::SolverGMRES solver(solver_control);
+#endif
+    LA::MPI::PreconditionAMG preconditioner;
+    LA::MPI::PreconditionAMG::AdditionalData data;
+#ifdef USE_PETSC_LA dof_handler.get_fe().n_components()
+    //data.symmetric_operator = true;
+#else
+    // Trilinos defaults are good 
+#endif
+    preconditioner.initialize(system_matrix, data);
+    solver.solve (system_matrix, completely_distributed_solution, system_rhs, preconditioner);
+    pcout << "   Solved in " << solver_control.last_step()
+          << " iterations." << std::endl;
+    */
+    //Direct solver MUMPS
+
+      
+    SolverControl cn;
+    PETScWrappers::SparseDirectMUMPS solver(cn, mpi_communicator);
+    solver.set_symmetric_mode(true);
+    solver.solve(L2_Mass_matrix, completely_distributed_solution, L2_system_rhs); 
+    L2_constraints.distribute (completely_distributed_solution);
+    L2_locally_relevant_solution = completely_distributed_solution;
+    L2_U = L2_locally_relevant_solution;
+    L2_UGhost=L2_U;
+  }
+    
+
   
+
+  
+
+  /*
    template <int dim>
   void phaseField<dim>::solveIteration ()
   {
@@ -259,7 +581,7 @@ namespace phaseField1
           << " iterations." << std::endl;
   }
  
-  
+    */
 
   
   //Solve
@@ -270,7 +592,7 @@ namespace phaseField1
     currentIteration=0;
     char buffer[200];
     while (true){
-      if (currentIteration>=25){sprintf(buffer, "maximum number of iterations reached without convergence. \n"); pcout<<buffer; break;exit (1);}
+      if (currentIteration>=15){sprintf(buffer, "maximum number of iterations reached without convergence. \n"); pcout<<buffer; break;}
       if (current_norm>1/std::pow(tol,2)){sprintf(buffer, "\n norm is too high. \n\n"); pcout<<buffer; break; exit (1);}
       assemble_system();
       current_norm=system_rhs.l2_norm();
@@ -292,7 +614,9 @@ namespace phaseField1
     DataOut<dim> data_out;
     data_out.attach_dof_handler (dof_handler);
     data_out.add_data_vector (UnGhost, nodal_solution_names, DataOut<dim>::type_dof_data, nodal_data_component_interpretation);    
+    data_out.add_data_vector (L2_UGhost, L2_nodal_solution_names, DataOut<dim>::type_dof_data, L2_nodal_data_component_interpretation);
 
+    
     Vector<float> subdomain (triangulation.n_active_cells());
     for (unsigned int i=0; i<subdomain.size(); ++i)
       subdomain(i) = triangulation.locally_owned_subdomain();
@@ -337,10 +661,9 @@ namespace phaseField1
     unsigned int dofs_per_cell= fe_values.dofs_per_cell;
     unsigned int n_q_points= fe_values.n_quadrature_points;
 
-
     std::vector<Vector<double> > quadSolutions;
     for (unsigned int q=0; q<n_q_points; ++q){
-      quadSolutions.push_back(dealii::Vector<double>(3)); //2 since there are two degree of freedom per cell
+      quadSolutions.push_back(dealii::Vector<double>(5)); //2 since there are two degree of freedom per cell
     }
 
     bool checkForFurtherRefinement=true;
@@ -360,7 +683,7 @@ namespace phaseField1
 	  bool mark_refine = false, mark_refine_solute=false;
 	     for (unsigned int q=0; q<n_q_points; ++q) {
 	       Point<dim> qPoint=fe_values.quadrature_point(q);	       
-	       if (quadSolutions[q][1]<0.999 && quadSolutions[q][1]>0.001) {
+	       if (quadSolutions[q][3]<0.999 && quadSolutions[q][3]>0.001) {
 		 mark_refine = true;
 	       }
 	           
@@ -425,7 +748,8 @@ namespace phaseField1
     //  GridGenerator::hyper_cube (triangulation, -10/2.0, 10/2.0, true);
     triangulation.refine_global (globalRefinementFactor);
     setup_system (); //inital set up
-    refine_grid(); //adative refinement
+    L2_setup_system();
+    //    refine_grid(); //adative refinement
     
     
     pcout << "   Number of active cells:       "
@@ -447,10 +771,11 @@ namespace phaseField1
     for (currentTime=0; currentTime<totalTime; currentTime+=dt){
       currentIncrement++;
       solve();
+      L2_projection();
       int NSTEP=(currentTime/dt);
       if (NSTEP%PSTEPS==0) output_results(currentIncrement);
       pcout << std::endl;
-      refine_grid(); //adative refinement
+      //refine_grid(); //adative refinement
     }
     //computing_timer.print_summary ();
   }
