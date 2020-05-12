@@ -11,11 +11,11 @@
 #define TotalTime 1000*TimeStep
 #define PSTEPS 50 
 
+
 //output controls
 #define outputFileName "solution"
 
-//parameters 
-
+//parameters
 #define M_c 1.0
 #define M_eta 0.00025
 #define delt 1.0
@@ -35,9 +35,13 @@
 
 //Pressure parameters
 #define PressureMin 0.001
-#define PressureMax 0.001  //can be changed to 0.01 and make TimeStep 1.0 to see Pressure as a function of time.
+#define PressureMax 0.001
+
+//can be changed to Pressuremax 0.01 and make TimeStep 1.0 to see Pressure as a function of time.
+
 
 //mechanics properties                                                                                                                     
 #define elasticModulus (1.0)*(pow(10.0,0.0))
 #define PoissonsRatio 0.3
+
 

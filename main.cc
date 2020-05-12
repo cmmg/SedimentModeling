@@ -156,12 +156,12 @@ namespace phaseField1
     DoFTools::make_hanging_node_constraints (dof_handler, constraints);
     DoFTools::make_hanging_node_constraints (dof_handler, constraints2);
 
-    //Setup boundary conditions                                                                                                                                                                           
-    std::vector<bool> uBCX0 (dim+3, false); uBCX0[0]=true;uBCX0[1]=true;                                                                                                                                                
+    //Setup boundary conditions    
+    std::vector<bool> uBCX0 (dim+3, false); uBCX0[0]=true;uBCX0[1]=true;              
+
     VectorTools::interpolate_boundary_values (dof_handler, 0, ZeroFunction<dim>(dim+3), constraints, uBCX0);
     VectorTools::interpolate_boundary_values (dof_handler, 0, ZeroFunction<dim>(dim+3), constraints2, uBCX0);
     
-
     VectorTools::interpolate_boundary_values (dof_handler, 1, ZeroFunction<dim>(dim+3), constraints, uBCX0);
     VectorTools::interpolate_boundary_values (dof_handler, 1, ZeroFunction<dim>(dim+3), constraints2, uBCX0);
     
