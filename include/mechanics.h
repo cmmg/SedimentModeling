@@ -12,7 +12,7 @@
 
 //Mechanics implementation
 template <class T, int dim>
-  void evaluateStress(const FEValues<dim>& fe_values, FEFaceValues<dim> & fe_face_values, const unsigned int DOF, const Table<1, T>& ULocal, Table<3, T>& P,Table<3, T>& PFace , Table <1,T> W,/*const deformationMap<T, dim>& defMap,*/ typename DoFHandler<dim>::active_cell_iterator &cell){
+  void evaluateStress(const FEValues<dim>& fe_values, FEFaceValues<dim> & fe_face_values, const unsigned int DOF, const Table<1, T>& ULocal, Table<3, T>& P,Table<3, T>& PFace , Table <1,T>& W,/*const deformationMap<T, dim>& defMap,*/ typename DoFHandler<dim>::active_cell_iterator &cell){
 
   //number of quadrature poits
   unsigned int n_q_points= fe_values.n_quadrature_points;

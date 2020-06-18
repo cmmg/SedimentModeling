@@ -153,7 +153,7 @@ namespace phaseField1
     constraints.reinit (locally_relevant_dofs);
     constraints2.reinit (locally_relevant_dofs);
     L2_constraints.reinit (locally_relevant_dofs);
-    DoFTools::make_hanging_node_constraints (dof_handler, constraints);
+    //DoFTools::make_hanging_node_constraints (dof_handler, constraints);
     DoFTools::make_hanging_node_constraints (dof_handler, constraints2);
 
     //Setup boundary conditions    
@@ -422,19 +422,21 @@ namespace phaseField1
 		
 	//setup residual vector
 	Table<1, Sacado::Fad::DFad<double> > Rc(dofs_per_cell),Rm(dofs_per_cell),R(dofs_per_cell); 
-	for (unsigned int i=0; i<dofs_per_cell; ++i) {R[i]=0.0;
-	  Rc[i]=0.0;
-	  Rm[i]=0.0;
+	for (unsigned int i=0; i<dofs_per_cell; ++i) {
+	  R[i]=0.0;
+	  //Rc[i]=0.0;
+	  //Rm[i]=0.0;
 	}
 	
 	//populate residual vector 
-	residualForChemo(fe_values, 0, fe_face_values, cell, dt, ULocal, ULocalConv, Rc, currentTime, totalTime);
-	residualForMechanics(fe_values,fe_face_values, 0, ULocal, ULocalConv, Rm, /*defMap,*/ cell, currentIncrement,currentTime);
-	
+	residualForChemo(fe_values, 0, fe_face_values, cell, dt, ULocal, ULocalConv, R, currentTime, totalTime);
+	residualForMechanics(fe_values,fe_face_values, 0, ULocal, ULocalConv, R, /*defMap,*/ cell, currentIncrement,currentTime);
+
+	/*
 	for (unsigned int i=0; i<dofs_per_cell; ++i) {
 	  R[i]=Rc[i]+Rm[i];
 	}
-	
+	*/
 	
 	//evaluate Residual(R) and Jacobian(R')
 	for (unsigned int i=0; i<dofs_per_cell; ++i) {
@@ -447,7 +449,7 @@ namespace phaseField1
 	  local_rhs(i) = -R[i].val();
 	}
 
-	if ((currentIteration==0)){
+	if ((currentIteration==0)&&(currentIncrement==1)){
           constraints.distribute_local_to_global (local_matrix, local_rhs, local_dof_indices, system_matrix, system_rhs);
         }
         else{
@@ -462,7 +464,7 @@ namespace phaseField1
   }
   
 
-   
+  /*   
   //Solve
   template <int dim>
  void phaseField<dim>::solveIteration(){
@@ -491,14 +493,14 @@ namespace phaseField1
     */
     //Direct solver MUMPS
 
-      
+    /*  
     SolverControl cn;
     PETScWrappers::SparseDirectMUMPS solver(cn, mpi_communicator);
     solver.set_symmetric_mode(false);
     solver.solve(system_matrix, completely_distributed_solution, system_rhs);
 
     //                                                                                                                                                                             
-    if ((currentIteration==0)){
+    if ((currentIteration==0)&&(currentIncrement==1)){
       constraints.distribute (completely_distributed_solution);
     }
     else{
@@ -511,7 +513,7 @@ namespace phaseField1
     locally_relevant_solution = completely_distributed_solution;
     dU = completely_distributed_solution; 
   }
-    
+    */
 
 
      
@@ -559,7 +561,7 @@ namespace phaseField1
 
   
 
-  /*
+  
    template <int dim>
   void phaseField<dim>::solveIteration ()
   {
@@ -574,14 +576,21 @@ namespace phaseField1
     PETScWrappers::PreconditionBlockJacobi preconditioner(system_matrix);
     cg.solve (system_matrix,  completely_distributed_solution, system_rhs,
               preconditioner);
-    constraints.distribute (completely_distributed_solution);
+   
+     if ((currentIteration==0)&&(currentIncrement==1)){
+      constraints.distribute (completely_distributed_solution);
+    }
+    else{
+      constraints2.distribute (completely_distributed_solution);
+    }
+   
     locally_relevant_solution = completely_distributed_solution;
     dU = completely_distributed_solution;
     pcout << "   Solved in " << solver_control.last_step()
           << " iterations." << std::endl;
   }
  
-    */
+   
 
   
   //Solve
