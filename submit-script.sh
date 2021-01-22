@@ -16,9 +16,9 @@
 
 #Now list your executable command (or a string of them).
 # Example for non-SLURM-compiled code:
-source ~/.bashrc
-cd /home/kbhagat2/workspace/Results_For_Paper/Single_Dendrite/IMPLICIT
-rm -rf CMakeCache.txt cmake_install.cmake Makefile CMakeFiles 
-cmake .
-make release
-mpirun -np 20 ./main
+source /software/groups/cmmg_group/.bashrc
+cd /home/kbhagat2/workspace/FluidTesting/LTFValid2
+rm -rf CMakeCache.txt cmake_install.cmake Makefile CMakeFiles
+cmake -DCMAKE_BUILD_TYPE=Release .
+make
+mpirun -np 40 ./main
