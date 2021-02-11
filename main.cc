@@ -12,6 +12,8 @@
 //physics headers
 #include "include/chemo.h"
 //#include "include/mechanics.h"
+//#include "include/writeSolutions.h"
+
 
 //Namespace
 namespace phaseField1
@@ -25,10 +27,10 @@ namespace phaseField1
     InitalConditions (): Function<dim>(DIMS){}
     void vector_value (const Point<dim>   &p, Vector<double>   &values) const{
         Assert (values.size() == DIMS, ExcDimensionMismatch (values.size(), DIMS));	
-	values(0)=0.5;//porosity	      
-	values(1)=0; // velocity
-	values(2)=0; //pressure
-			
+	values(0)=1.0;//porosity	      
+	values(1)=0.0; // velocity
+	values(2)=0.0; //pressure
+	values(3)=1.0; //order
     }
   };
   
@@ -68,7 +70,7 @@ namespace phaseField1
 
   template <int dim>
   phaseField<dim>::phaseField ():
-    fe(FE_Q<dim>(1),DIMS),
+    fe(FE_Q<dim>(FEOrder),DIMS),
     dof_handler (triangulation),
     pcout (std::cout){
     //solution variables
@@ -81,6 +83,7 @@ namespace phaseField1
      nodal_solution_names.push_back("vel"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
      nodal_solution_names.push_back("press"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
+     nodal_solution_names.push_back("ORDER"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
      
   }
   
@@ -100,19 +103,20 @@ namespace phaseField1
 
     //Setup boundary conditions    
     std::vector<bool> top (DIMS, false); top[0]=true; /*top[1]=true;*/ top[2]=true;              
-    std::vector<bool> bottom (DIMS, false); bottom[1]=true;              
+    std::vector<bool> bottom (DIMS, false); bottom[1]=true; bottom[3]=true;              
 
 
     std::vector<double> valueBottom (DIMS);    
-    valueBottom[0]=0.0; //porosity 
+    valueBottom[0]=0; //porosity 
     valueBottom[1]=0.0 ; //1.53; //velocity
     valueBottom[2]=0.0; //pressure 
-    
+    valueBottom[3]=0.0; //order
     std::vector<double> valueTop (DIMS);    
-    valueTop[0]=1.0; //porosity 
-    valueTop[1]=0.0 ; //1.53; //velocity
+    valueTop[0]=0.0; //porosity 
+    valueTop[1]=0; //1.53; //velocity
     valueTop[2]=0.0; //pressure 
-    
+    valueTop[3]=0.0; //order 
+
     //bottom
     VectorTools::interpolate_boundary_values (dof_handler, 0, ConstantFunction<dim>(valueBottom), constraints, bottom);
     VectorTools::interpolate_boundary_values (dof_handler, 0, ZeroFunction<dim>(DIMS), constraints2, bottom);
@@ -156,7 +160,7 @@ namespace phaseField1
   void phaseField<dim>::assemble_system (){
     //TimerOutput::Scope t(computing_timer, "assembly");
     system_rhs=0.0; system_matrix=0.0;
-    const QGauss<dim>  quadrature_formula(dim+1);
+    const QGauss<dim>  quadrature_formula(FEOrder+1);
     //   const QGauss<dim-1>	face_quadrature_formula (dim);
     FEValues<dim> fe_values (fe, quadrature_formula,
                              update_values    |  update_gradients |
@@ -223,13 +227,14 @@ namespace phaseField1
 
   }
   
-
+  
   //Solve
   template <int dim>
   void phaseField<dim>::solveIteration(){
     //TimerOutput::Scope t(computing_timer, "solve");
     //LA::MPI::Vector completely_distributed_solution (locally_owned_dofs, mpi_communicator);
     //Direct solver MUMPS
+
     /*
     SolverControl           cn(1000,1.0e-12);
     SolverCG<>              cg (cn);
@@ -244,9 +249,10 @@ namespace phaseField1
 
     std::cout << "   " << cn.last_step()
               << " CG iterations needed to obtain convergence."
-              << std::endl;
-
+	              << std::endl;
     */
+
+    
      SparseDirectUMFPACK A_direct;
      A_direct.initialize(system_matrix);
      A_direct.vmult(dU, system_rhs);
@@ -256,9 +262,9 @@ namespace phaseField1
      else{
       constraints2.distribute (dU);
      }
-         
+       
   }
-
+  
 
   /*
   //Solve
@@ -273,8 +279,9 @@ namespace phaseField1
     solver.solve(system_matrix, completely_distributed_solution, system_rhs);
     constraints.distribute (completely_distributed_solution);
     locally_relevant_solution = completely_distributed_solution;
-    dU = completely_distributed_solution; 
+    dU = completely_distributed_solution;    
   }
+
   */
   
   //Solve
@@ -329,12 +336,21 @@ namespace phaseField1
   //Solve problem
   template <int dim>
   void phaseField<dim>::run (){
+
     //setup problem geometry and mesh
-    GridGenerator::hyper_cube (triangulation, -problemLength/2.0, problemLength/2.0,true);
+
+    /*GridGenerator::hyper_cube (triangulation, -problemLength/2.0, problemLength/2.0,true);
     //  GridGenerator::hyper_cube (triangulation, -10/2.0, 10/2.0, true);
     triangulation.refine_global (globalRefinementFactor);
+    */
+        
+    std::vector<unsigned int> numRepetitions;
+    numRepetitions.push_back(XSubRf); // x refinement
+    Point<dim> p1 (0);
+    Point<dim> p2 (problemLength);
+    GridGenerator::subdivided_hyper_rectangle (triangulation, numRepetitions, p1, p2, true);     
+
     setup_system (); //inital set up
-    
     
     pcout << "   Number of active cells:       "
 	  << triangulation.n_global_active_cells()
@@ -356,7 +372,10 @@ namespace phaseField1
       currentIncrement++;
       solve(); 
      int NSTEP=(currentTime/dt);
-     if (NSTEP%PSTEPS==0) output_results(currentIncrement);
+     if (NSTEP%PSTEPS==0) {
+       output_results(currentIncrement);
+       //writeSolutionsToFile(Un, tag);	
+     }
      pcout << std::endl;
 
     }
