@@ -5,7 +5,7 @@
 #define globalRefinementFactor 0
 
 
-#define XSubRf 100 //60
+#define XSubRf 1000 //60
 
 //time step controls
 #define TimeStep 1.0e-2
@@ -17,7 +17,7 @@
 #define outputFileName "solution"
 
 //parameters
-#define ALPHA -0.974
+#define ALPHA (2.5) //1/0.975
 #define betaP 2.272e-03
 #define ETA 1.0
 
@@ -25,4 +25,4 @@
 //moving height
 #define Vel 1.53
 #define V1 -1.53
-#define problemLength 2.6
+#define problemLength 2.77
