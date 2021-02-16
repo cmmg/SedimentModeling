@@ -27,10 +27,11 @@ namespace phaseField1
     InitalConditions (): Function<dim>(DIMS){}
     void vector_value (const Point<dim>   &p, Vector<double>   &values) const{
         Assert (values.size() == DIMS, ExcDimensionMismatch (values.size(), DIMS));	
-	values(0)=1.0;//porosity	      
-	values(1)=0.0; // velocity
-	values(2)=0.0; //pressure
-	values(3)=1.0; //order
+	values(0)=0.0; // velocityx
+	values(1)=0.0; // velocityy 	
+	values(2)=1.0;//porosity	      
+	values(3)=0.0; //pressure
+	values(4)=1.0; //order
     }
   };
   
@@ -76,11 +77,16 @@ namespace phaseField1
     //solution variables
     dt=TimeStep; totalTime=TotalTime;
     currentIncrement=0; currentTime=0;
-
+    
     //nodal Solution names
+    for (unsigned int i=0; i<dim; ++i){
+      nodal_solution_names.push_back("velocity"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_part_of_vector);
+    }
+
+
     nodal_solution_names.push_back("phi"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
-     nodal_solution_names.push_back("vel"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+  
      nodal_solution_names.push_back("press"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
      nodal_solution_names.push_back("ORDER"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
@@ -102,21 +108,41 @@ namespace phaseField1
     DoFTools::make_hanging_node_constraints (dof_handler, constraints2);
 
     //Setup boundary conditions    
-    std::vector<bool> top (DIMS, false); top[0]=true; /*top[1]=true;*/ top[2]=true;              
-    std::vector<bool> bottom (DIMS, false); bottom[1]=true; bottom[3]=true;              
+    std::vector<bool> top (DIMS, false);
+    top[2]=true; //porosity
+    top[3]=true; //pressure
+    
+    std::vector<bool> bottom (DIMS, false);
+    bottom[0]=true; //vx
+    bottom[1]=true; //vy
+    bottom[4]=true; //Order             
 
+
+    std::vector<bool> sides(DIMS, false);
+    sides[1]=true; //vy
+  
 
     std::vector<double> valueBottom (DIMS);    
-    valueBottom[0]=0; //porosity 
-    valueBottom[1]=0.0 ; //1.53; //velocity
-    valueBottom[2]=0.0; //pressure 
-    valueBottom[3]=0.0; //order
+    valueBottom[0]=0.0; //vx
+    valueBottom[1]=0.0; //vy
+    valueBottom[2]=0.0; //porosity
+    valueBottom[3]=0.0; //pressure
+    valueBottom[4]=0.0; //order
+    
     std::vector<double> valueTop (DIMS);    
-    valueTop[0]=0.0; //porosity 
-    valueTop[1]=0; //1.53; //velocity
-    valueTop[2]=0.0; //pressure 
-    valueTop[3]=0.0; //order 
+    valueTop[0]=0.0; //vx 
+    valueTop[1]=0.0; //Vy
+    valueTop[2]=0.0; //porosity 
+    valueTop[3]=0.0; //pressure
+    valueTop[4]=0.0; //order 
 
+    std::vector<double> valueSides (DIMS);    
+    valueSides[0]=0; //
+    valueSides[1]=0; //Vy
+    valueSides[2]=0; //
+    valueSides[3]=0; //
+    valueSides[4]=0; //
+    
     //bottom
     VectorTools::interpolate_boundary_values (dof_handler, 0, ConstantFunction<dim>(valueBottom), constraints, bottom);
     VectorTools::interpolate_boundary_values (dof_handler, 0, ZeroFunction<dim>(DIMS), constraints2, bottom);
@@ -346,8 +372,10 @@ namespace phaseField1
         
     std::vector<unsigned int> numRepetitions;
     numRepetitions.push_back(XSubRf); // x refinement
-    Point<dim> p1 (0);
-    Point<dim> p2 (problemLength);
+    numRepetitions.push_back(YSubRf); // y refinement
+    
+    Point<dim> p1 (0,0);
+    Point<dim> p2 (problemLength,problemHeight);
     GridGenerator::subdivided_hyper_rectangle (triangulation, numRepetitions, p1, p2, true);     
 
     setup_system (); //inital set up
@@ -364,8 +392,8 @@ namespace phaseField1
     
     //sync ghost vectors to non-ghost vectors
     //  UGhost=U;  UnGhost=Un;
-      output_results (0);
-    
+    output_results (0);
+      
     //Time stepping
     currentIncrement=0;
     for (currentTime=0; currentTime<totalTime; currentTime+=dt){
@@ -390,7 +418,7 @@ int main(int argc, char *argv[]){
       using namespace dealii;
       using namespace phaseField1;
       //  Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
-      phaseField<1> problem;
+      phaseField<2> problem;
       problem.run ();
     }
   catch (std::exception &exc)
