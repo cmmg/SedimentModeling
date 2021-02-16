@@ -61,12 +61,9 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
     
     for (unsigned int q=0; q<n_q_points; ++q) {
       Point<dim> qPoint=fe_values.quadrature_point(q);  
-      //ORDER=1.0;
-      //if (qPoint[0]>Vel*currentTime) {ORDER=0.0;}
-    
-      // ORDER=0.5*(1.0+std::tanh(1.5*(Vel*currentTime-qPoint[0])));
-
+         
       if (ck==0) {
+	//adding residual for the conituity equation
 	R[i] += (1.0)*(1.0/dt)*fe_values.shape_value(i, q)*(phi[q]-phi_conv[q])*fe_values.JxW(q);
 	for (unsigned int j = 0; j < dim; j++){	
 	  R[i] +=-(ORDER[q])*fe_values.shape_value(i, q)*(ALPHA-phi[q])*(vel_j[q][j])*fe_values.JxW(q);
@@ -74,7 +71,8 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
 	
       }
       
-      else if(ck==1) {	
+      else if(ck==1) {
+	//additing residual for the velocity equation
 	R[i] += fe_values.shape_value(i, q)*(vel[q])*fe_values.JxW(q);  
 	for (unsigned int j = 0; j < dim; j++) {
 	  R[i] +=fe_values.shape_value(i, q)*(phi[q]*(press_j[q][j]+1.0))*fe_values.JxW(q);	  
@@ -82,6 +80,7 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
       }
 
       else if(ck==2) {
+	//adding residual for the pressure equation
 	R[i] +=(1.0)*(betaP)*(1.0/dt)*fe_values.shape_value(i, q)*(phi[q]*(press[q]-press_conv[q]))*fe_values.JxW(q);
 	R[i] +=(ORDER[q])*(1.0/ETA)*fe_values.shape_value(i, q)*(phi[q]*press[q])*fe_values.JxW(q);
 
@@ -92,6 +91,7 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
       }
 
       else if (ck==3) {
+	//adding residula for the order parameter
 	R[i]+=fe_values.shape_value(i, q)*(ORDER[q]-0.5*(1.0+std::tanh(200.0*(Vel*currentTime-qPoint[0]))))*fe_values.JxW(q);
 	
       }

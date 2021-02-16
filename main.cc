@@ -27,6 +27,8 @@ namespace phaseField1
     InitalConditions (): Function<dim>(DIMS){}
     void vector_value (const Point<dim>   &p, Vector<double>   &values) const{
         Assert (values.size() == DIMS, ExcDimensionMismatch (values.size(), DIMS));	
+
+	//Here we specify the initial conditons. The interface boundary condition is same as the initial conditons
 	values(0)=1.0;//porosity	      
 	values(1)=0.0; // velocity
 	values(2)=0.0; //pressure
@@ -101,8 +103,10 @@ namespace phaseField1
     //DoFTools::make_hanging_node_constraints (dof_handler, constraints);
     DoFTools::make_hanging_node_constraints (dof_handler, constraints2);
 
-    //Setup boundary conditions    
-    std::vector<bool> top (DIMS, false); top[0]=true; /*top[1]=true;*/ top[2]=true;              
+    //Setup boundary conditions
+    //two dirichlet boundary condition on the top
+    //two dirichlet boundary condition on the bottom
+    std::vector<bool> top (DIMS, false); top[0]=true; top[2]=true;              
     std::vector<bool> bottom (DIMS, false); bottom[1]=true; bottom[3]=true;              
 
 
