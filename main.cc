@@ -59,7 +59,7 @@ namespace phaseField1
     Vector<double>                            locally_relevant_solution, U, Un, UGhost, UnGhost, dU;
     Vector<double>                            system_rhs;
     ConditionalOStream                        pcout;
-    //TimerOutput                               computing_timer;
+    TimerOutput                               computing_timer;
     SparsityPattern                           sparsity_pattern;
     
     
@@ -74,7 +74,8 @@ namespace phaseField1
   phaseField<dim>::phaseField ():
     fe(FE_Q<dim>(FEOrder),DIMS),
     dof_handler (triangulation),
-    pcout (std::cout){
+    pcout (std::cout),
+    computing_timer (pcout, TimerOutput::summary, TimerOutput::wall_times){
     //solution variables
     dt=TimeStep; totalTime=TotalTime;
     currentIncrement=0; currentTime=0;
@@ -92,6 +93,7 @@ namespace phaseField1
   template <int dim>
   phaseField<dim>::~phaseField (){
     dof_handler.clear ();
+    system_matrix.clear();
   }
 
   //Apply boundary conditions
@@ -137,7 +139,7 @@ namespace phaseField1
   //Setup
   template <int dim>
   void phaseField<dim>::setup_system (){
-    // TimerOutput::Scope t(computing_timer, "setup");
+    TimerOutput::Scope t(computing_timer, "setup");
     dof_handler.distribute_dofs (fe);
 
     //Solution vectors
@@ -150,7 +152,7 @@ namespace phaseField1
     //call applyBoundaryConditions to setup constraints matrix needed for generating the sparsity pattern
     applyBoundaryConditions(0);
     
-    DynamicSparsityPattern dsp (dof_handler.n_dofs(),dof_handler.n_dofs());
+    DynamicSparsityPattern dsp (dof_handler.n_dofs());
     DoFTools::make_sparsity_pattern (dof_handler, dsp, constraints2, false);
     // SparsityTools::distribute_sparsity_pattern (dsp, dof_handler.n_locally_owned_dofs_per_processor(), mpi_communicator, locally_relevant_dofs);
     sparsity_pattern.copy_from(dsp);
@@ -162,7 +164,7 @@ namespace phaseField1
   //Assembly
   template <int dim>
   void phaseField<dim>::assemble_system (){
-    //TimerOutput::Scope t(computing_timer, "assembly");
+    TimerOutput::Scope t(computing_timer, "assembly");
     system_rhs=0.0; system_matrix=0.0;
     const QGauss<dim>  quadrature_formula(FEOrder+1);
     //   const QGauss<dim-1>	face_quadrature_formula (dim);
@@ -235,7 +237,7 @@ namespace phaseField1
   //Solve
   template <int dim>
   void phaseField<dim>::solveIteration(){
-    //TimerOutput::Scope t(computing_timer, "solve");
+    TimerOutput::Scope t(computing_timer, "solve");
     //LA::MPI::Vector completely_distributed_solution (locally_owned_dofs, mpi_communicator);
     //Direct solver MUMPS
 
@@ -316,7 +318,7 @@ namespace phaseField1
   //Output
   template <int dim>
   void phaseField<dim>::output_results (const unsigned int cycle) {
-    //TimerOutput::Scope t(computing_timer, "output");
+    TimerOutput::Scope t(computing_timer, "output");
     DataOut<dim> data_out;
     data_out.attach_dof_handler (dof_handler);
     data_out.add_data_vector (Un, nodal_solution_names, DataOut<dim>::type_dof_data, nodal_data_component_interpretation);    
