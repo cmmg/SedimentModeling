@@ -73,15 +73,15 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
       
       else if(ck==1) {
 	//additing residual for the velocity equation
-	R[i] += fe_values.shape_value(i, q)*(vel[q])*fe_values.JxW(q);  
+	R[i] += (1.0)*fe_values.shape_value(i, q)*(vel[q])*fe_values.JxW(q);  
 	for (unsigned int j = 0; j < dim; j++) {
-	  R[i] +=fe_values.shape_value(i, q)*(phi[q]*(press_j[q][j]+1.0))*fe_values.JxW(q);	  
+	  R[i] +=(1.0)*fe_values.shape_value(i, q)*(phi[q]*(press_j[q][j]+1.0))*fe_values.JxW(q);	  
 	}
       }
 
       else if(ck==2) {
 	//adding residual for the pressure equation
-	R[i] +=(1.0)*(betaP)*(1.0/dt)*fe_values.shape_value(i, q)*(phi[q]*(press[q]-press_conv[q]))*fe_values.JxW(q);
+	R[i] +=(1.0)*(1.0)*(betaP)*(1.0/dt)*fe_values.shape_value(i, q)*(phi[q]*(press[q]-press_conv[q]))*fe_values.JxW(q);
 	R[i] +=(ORDER[q])*(1.0/ETA)*fe_values.shape_value(i, q)*(phi[q]*press[q])*fe_values.JxW(q);
 
 
