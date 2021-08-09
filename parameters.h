@@ -8,14 +8,14 @@
 #define globalRefinementFactor 0
 
 //No of grid points
-#define XSubRf 2000 //60
+#define XSubRf 500 //60
 
 //time step controls
 //dt 
 #define TimeStep 1.0e-3
 
 //Final time
-#define TotalTime 1850*TimeStep
+#define TotalTime 1003*TimeStep
 
 //Write solution file at PSTEPS interval 
 #define PSTEPS 1
@@ -25,13 +25,14 @@
 #define outputFileName "solution"
 
 //parameters
-#define ALPHA (1.0/0.100) // 1/mb
-#define betaP 2.27e-03
-#define ETA 1.0
+#define ALPHA (1.0/0.1) // 1/mb
+#define lam 4.905
+#define lam_m 0.0408
+#define lam_v 0.408
 
 
 //moving height velocity
-#define Vel 1.57
+#define Vel 1.0
 
 //domain size
-#define problemLength 2.86
+#define problemLength 1.0

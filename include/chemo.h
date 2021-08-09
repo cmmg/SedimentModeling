@@ -75,14 +75,14 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
 	//additing residual for the velocity equation
 	R[i] += (1.0)*fe_values.shape_value(i, q)*(vel[q])*fe_values.JxW(q);  
 	for (unsigned int j = 0; j < dim; j++) {
-	  R[i] +=(1.0)*fe_values.shape_value(i, q)*(phi[q]*(press_j[q][j]+1.0))*fe_values.JxW(q);	  
+	  R[i] +=(lam*pow(phi[q],3))*fe_values.shape_value(i, q)*((press_j[q][j]+1.0))*fe_values.JxW(q);	  
 	}
       }
 
       else if(ck==2) {
 	//adding residual for the pressure equation
-	R[i] +=(1.0)*(1.0)*(betaP)*(1.0/dt)*fe_values.shape_value(i, q)*(phi[q]*(press[q]-press_conv[q]))*fe_values.JxW(q);
-	R[i] +=(ORDER[q])*(1.0/ETA)*fe_values.shape_value(i, q)*(phi[q]*press[q])*fe_values.JxW(q);
+	R[i] +=(lam_m*phi[q])*(1.0/dt)*fe_values.shape_value(i, q)*((press[q]-press_conv[q]))*fe_values.JxW(q);
+	R[i] +=(ORDER[q])*(lam_v*phi[q])*fe_values.shape_value(i, q)*(press[q])*fe_values.JxW(q);
 
 
 	for (unsigned int j = 0; j < dim; j++) {
@@ -92,7 +92,7 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
 
       else if (ck==3) {
 	//adding residula for the order parameter
-	R[i]+=fe_values.shape_value(i, q)*(ORDER[q]-0.5*(1.0+std::tanh(200.0*(Vel*currentTime-qPoint[0]))))*fe_values.JxW(q);
+	R[i]+=fe_values.shape_value(i, q)*(ORDER[q]-0.5*(1.0+std::tanh(250.0*(Vel*currentTime-qPoint[0]))))*fe_values.JxW(q);
 	
       }
     }
