@@ -30,9 +30,6 @@ namespace phaseField1
 
 	//Here we specify the initial conditons. The interface boundary condition is same as the initial conditons
 	values(0)=1.0;//porosity	      
-	values(1)=0.0; // velocity
-	values(2)=0.0; //pressure
-	values(3)=0.0; //order
     }
   };
   
@@ -81,12 +78,7 @@ namespace phaseField1
     currentIncrement=0; currentTime=0;
 
     //nodal Solution names
-    nodal_solution_names.push_back("phi"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
-
-     nodal_solution_names.push_back("vel"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
      nodal_solution_names.push_back("press"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
-
-     nodal_solution_names.push_back("ORDER"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
      
   }
   
@@ -106,26 +98,12 @@ namespace phaseField1
     DoFTools::make_hanging_node_constraints (dof_handler, constraints2);
 
     //Setup boundary conditions
-    //two dirichlet boundary condition on the top
-    //two dirichlet boundary condition on the bottom
-    std::vector<bool> top (DIMS, false); top[0]=true; top[2]=true;              
-    std::vector<bool> bottom (DIMS, false); bottom[1]=true; bottom[3]=true;              
+    //one dirichlet boundary condition on the top
+    std::vector<bool> top (DIMS, false); top[0]=true;               
 
 
-    std::vector<double> valueBottom (DIMS);    
-    valueBottom[0]=0; //porosity 
-    valueBottom[1]=0.0 ; //1.53; //velocity
-    valueBottom[2]=0.0; //pressure 
-    valueBottom[3]=1.0; //order
     std::vector<double> valueTop (DIMS);    
-    valueTop[0]=0.0; //porosity 
-    valueTop[1]=0; //1.53; //velocity
-    valueTop[2]=0.0; //pressure 
-    valueTop[3]=0.0; //order 
-
-    //bottom
-    VectorTools::interpolate_boundary_values (dof_handler, 0, ConstantFunction<dim>(valueBottom), constraints, bottom);
-    VectorTools::interpolate_boundary_values (dof_handler, 0, ZeroFunction<dim>(DIMS), constraints2, bottom);
+    valueTop[0]=-1.0; //porosity 
 
     //top
     VectorTools::interpolate_boundary_values (dof_handler, 1, ConstantFunction<dim>(valueTop) , constraints, top);
