@@ -27,9 +27,8 @@ namespace phaseField1
     InitalConditions (): Function<dim>(DIMS){}
     void vector_value (const Point<dim>   &p, Vector<double>   &values) const{
         Assert (values.size() == DIMS, ExcDimensionMismatch (values.size(), DIMS));	
-
 	//Here we specify the initial conditons. The interface boundary condition is same as the initial conditons
-	values(0)=1.0;//porosity	      
+	values(0)=1.0;//Initial excess pressure
     }
   };
   
@@ -48,6 +47,7 @@ namespace phaseField1
     void solve ();
     void refine_grid ();
     void output_results (const unsigned int increment);
+    void P_average ();
     Triangulation<dim>                        triangulation;
     FESystem<dim>                             fe;
     DoFHandler<dim>                           dof_handler;
@@ -100,15 +100,22 @@ namespace phaseField1
     //Setup boundary conditions
     //one dirichlet boundary condition on the top
     std::vector<bool> top (DIMS, false); top[0]=true;               
+    std::vector<bool> bottom (DIMS, false); bottom[0]=true;
 
 
-    std::vector<double> valueTop (DIMS);    
-    valueTop[0]=-1.0; //porosity 
-
+    std::vector<double> valueTop (DIMS);   
+    std::vector<double> valueBottom (DIMS);
+    valueTop[0]=-1.0; //ex. pressure
+    valueBottom[0]=-1.0; //ex. pressure                                                                                                                                               
     //top
     VectorTools::interpolate_boundary_values (dof_handler, 1, ConstantFunction<dim>(valueTop) , constraints, top);
     VectorTools::interpolate_boundary_values (dof_handler, 1, ZeroFunction<dim>(DIMS), constraints2, top);
     
+    //Bottom                                                                   
+    VectorTools::interpolate_boundary_values (dof_handler, 0, ConstantFunction<dim>(valueBottom) , constraints, top);
+    VectorTools::interpolate_boundary_values (dof_handler, 0, ZeroFunction<dim>(DIMS), constraints2, top);
+
+
     constraints.close ();
     constraints2.close ();
 
@@ -292,6 +299,55 @@ namespace phaseField1
   }
 
   
+
+
+  //Calculate bubble Volume
+  template <int dim>
+  void phaseField<dim>::P_average ()  {
+    TimerOutput::Scope t(computing_timer, "bubbleVolume");
+    const QGauss<dim>  quadrature_formula(FEOrder+1);
+    //   const QGauss<dim-1> face_quadrature_formula (2);
+    FEValues<dim> fe_values (fe, quadrature_formula,
+                           update_values    |  update_gradients |
+			     update_quadrature_points|update_JxW_values);
+    //unsigned int dofs_per_cell= fe_values.dofs_per_cell;
+    unsigned int n_q_points= fe_values.n_quadrature_points;
+    //const unsigned int faces_per_cell = GeometryInfo<dim>::faces_per_cell;
+  
+
+    std::vector<Vector<double> > quadSolutions;
+    for (unsigned int q=0; q<n_q_points; ++q){
+      quadSolutions.push_back(dealii::Vector<double>(DIMS)); //3 since there are three degrees of freedom per cell (phi,eta,c)
+    }
+  
+    typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
+  
+    double averageP=0;
+   
+    for (;cell!=endc; ++cell) {
+      if (cell->is_locally_owned()) {
+	fe_values.reinit(cell);
+	fe_values.get_function_values(Un, quadSolutions);
+	for (unsigned int q=0; q<n_q_points; ++q) {
+	  averageP+= (quadSolutions[q][0])*fe_values.JxW(q);
+	}
+      }
+      //++t_cell;
+    }
+
+    char buffer[200];
+    sprintf(buffer, "  Average of P is:     %14.9e\n", averageP);
+    pcout<<buffer;
+
+    // totalBubbleVolume=volumeTotal;
+    //surfaceAreaTotal= Utilities::MPI::sum(surfaceArea, mpi_communicator);
+    //sprintf(buffer, "  Surface Area of bubble is:     %14.9e\n", surfaceAreaTotal);
+    //pcout<<buffer;
+    //pcout << "  Volume of bubble  is :       "
+    //      <<volumeTotal <<std::endl;
+  }
+
+
   
   //Output
   template <int dim>
@@ -358,8 +414,10 @@ namespace phaseField1
      int NSTEP=(currentTime/dt);
      if (NSTEP%PSTEPS==0) {
        output_results(currentIncrement);
+       P_average ();
        //writeSolutionsToFile(Un, tag);	
      }
+
      pcout << std::endl;
 
     }

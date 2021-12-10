@@ -12,10 +12,10 @@
 
 //time step controls
 //dt 
-#define TimeStep 1.0e-2
+#define TimeStep 1.0e-00
 
 //Final time
-#define TotalTime 102*TimeStep
+#define TotalTime 1802*TimeStep
 
 //Write solution file at PSTEPS interval 
 #define PSTEPS 1
@@ -25,7 +25,7 @@
 #define outputFileName "solution"
 
 //parameters
-#define Tc 1.0
+#define Tc 53.0 //1.0
 
 //domain size
 #define problemLength 1.0
