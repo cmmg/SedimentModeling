@@ -13,7 +13,8 @@
 #include "include/chemo.h"
 //#include "include/mechanics.h"
 //#include "include/writeSolutions.h"
-
+#include <iostream>
+#include <fstream>
 
 //Namespace
 namespace phaseField1
@@ -47,7 +48,7 @@ namespace phaseField1
     void solve ();
     void refine_grid ();
     void output_results (const unsigned int increment);
-    void P_average ();
+    void P_average (const unsigned int increment);
     Triangulation<dim>                        triangulation;
     FESystem<dim>                             fe;
     DoFHandler<dim>                           dof_handler;
@@ -303,7 +304,7 @@ namespace phaseField1
 
   //Calculate bubble Volume
   template <int dim>
-  void phaseField<dim>::P_average ()  {
+  void phaseField<dim>::P_average (const unsigned int ITR)  {
     TimerOutput::Scope t(computing_timer, "bubbleVolume");
     const QGauss<dim>  quadrature_formula(FEOrder+1);
     //   const QGauss<dim-1> face_quadrature_formula (2);
@@ -338,6 +339,17 @@ namespace phaseField1
     char buffer[200];
     sprintf(buffer, "  Average of P is:     %14.9e\n", averageP);
     pcout<<buffer;
+    
+    //std::ofstream myfile ("file.txt");
+    std::ofstream myfile("file.txt", std::ofstream::out | std::ofstream::app);
+
+    if (myfile.is_open())
+      {
+	myfile<<ITR<<" "<<averageP<<"\n";
+	//myfile << "This is another line.\n";
+	myfile.close();
+      }
+    else pcout << "Unable to open file";
 
     // totalBubbleVolume=volumeTotal;
     //surfaceAreaTotal= Utilities::MPI::sum(surfaceArea, mpi_communicator);
@@ -414,10 +426,15 @@ namespace phaseField1
      int NSTEP=(currentTime/dt);
      if (NSTEP%PSTEPS==0) {
        output_results(currentIncrement);
-       P_average ();
+       // P_average (currentIncrement);
        //writeSolutionsToFile(Un, tag);	
      }
 
+     if (NSTEP%PSTEPS2==0) {
+       P_average (currentIncrement);
+     }
+
+     
      pcout << std::endl;
 
     }
@@ -431,6 +448,8 @@ int main(int argc, char *argv[]){
     {
       using namespace dealii;
       using namespace phaseField1;
+      using namespace std;
+
       //  Utilities::MPI::MPI_InitFinalize mpi_initialization(argc, argv, 1);
       phaseField<1> problem;
       problem.run ();

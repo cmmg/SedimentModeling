@@ -55,7 +55,7 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
 	//adding residual for the conituity equation
 	R[i] += (1.0)*(1.0/dt)*fe_values.shape_value(i, q)*(press[q]-press_conv[q])*fe_values.JxW(q);
 	for (unsigned int j = 0; j < dim; j++){	
-	  R[i] +=(1.0)*fe_values.shape_grad(i, q)[j]*(press_j[q][j])*fe_values.JxW(q);
+	  R[i] +=(1.0)*(Cof)*fe_values.shape_grad(i, q)[j]*(press_j[q][j])*fe_values.JxW(q);
 	}
 	
       }
