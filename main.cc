@@ -32,7 +32,7 @@ namespace phaseField1
 	values(0)=1.0;//porosity	      
 	values(1)=0.0; // velocity
 	values(2)=0.0; //pressure
-	values(3)=0.0; //order
+	//values(3)=0.0; //order
     }
   };
   
@@ -109,19 +109,18 @@ namespace phaseField1
     //two dirichlet boundary condition on the top
     //two dirichlet boundary condition on the bottom
     std::vector<bool> top (DIMS, false); top[0]=true; top[2]=true;              
-    std::vector<bool> bottom (DIMS, false); bottom[1]=true; bottom[3]=true;              
+    std::vector<bool> bottom (DIMS, false); bottom[1]=true;               
 
 
     std::vector<double> valueBottom (DIMS);    
     valueBottom[0]=0; //porosity 
-    valueBottom[1]=0.0 ; //1.53; //velocity
+    valueBottom[1]=0.0 ; //velocity
     valueBottom[2]=0.0; //pressure 
-    valueBottom[3]=1.0; //order
+    
     std::vector<double> valueTop (DIMS);    
     valueTop[0]=0.0; //porosity 
     valueTop[1]=0; //1.53; //velocity
-    valueTop[2]=0.0; //pressure 
-    valueTop[3]=0.0; //order 
+    valueTop[2]=1.0; //pressure 
 
     //bottom
     VectorTools::interpolate_boundary_values (dof_handler, 0, ConstantFunction<dim>(valueBottom), constraints, bottom);
