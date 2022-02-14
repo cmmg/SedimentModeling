@@ -31,8 +31,8 @@ namespace phaseField1
 	//Here we specify the initial conditons. The interface boundary condition is same as the initial conditons
 	values(0)=1.0;//porosity	      
 	values(1)=0.0; // velocity
-	values(2)=0.0; //pressure
-	values(3)=0.0; //order
+	values(2)=0.0; //effective pressure
+
     }
   };
   
@@ -51,6 +51,7 @@ namespace phaseField1
     void solve ();
     void refine_grid ();
     void output_results (const unsigned int increment);
+    void Phi_average (const unsigned int increment);
     Triangulation<dim>                        triangulation;
     FESystem<dim>                             fe;
     DoFHandler<dim>                           dof_handler;
@@ -61,7 +62,7 @@ namespace phaseField1
     ConditionalOStream                        pcout;
     TimerOutput                               computing_timer;
     SparsityPattern                           sparsity_pattern;
-    
+
     
     //solution variables
     unsigned int currentIncrement, currentIteration;
@@ -82,11 +83,10 @@ namespace phaseField1
 
     //nodal Solution names
     nodal_solution_names.push_back("phi"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+    nodal_solution_names.push_back("vel"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
+    nodal_solution_names.push_back("press"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
-     nodal_solution_names.push_back("vel"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
-     nodal_solution_names.push_back("press"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
 
-     nodal_solution_names.push_back("ORDER"); nodal_data_component_interpretation.push_back(DataComponentInterpretation::component_is_scalar);
      
   }
   
@@ -102,26 +102,25 @@ namespace phaseField1
     constraints.clear (); constraints2.clear ();  
     //constraints.reinit (locally_relevant_dofs);
     //constraints2.reinit (locally_relevant_dofs);
-    //DoFTools::make_hanging_node_constraints (dof_handler, constraints);
+    DoFTools::make_hanging_node_constraints (dof_handler, constraints);
     DoFTools::make_hanging_node_constraints (dof_handler, constraints2);
 
     //Setup boundary conditions
     //two dirichlet boundary condition on the top
     //two dirichlet boundary condition on the bottom
-    std::vector<bool> top (DIMS, false); top[0]=true; top[2]=true;              
-    std::vector<bool> bottom (DIMS, false); bottom[1]=true; bottom[3]=true;              
+    std::vector<bool> top (DIMS, false); top[2]=true;              
+    std::vector<bool> bottom (DIMS, false); bottom[1]=true; //bottom[2]=true;               
 
 
     std::vector<double> valueBottom (DIMS);    
-    valueBottom[0]=0; //porosity 
-    valueBottom[1]=0.0 ; //1.53; //velocity
-    valueBottom[2]=0.0; //pressure 
-    valueBottom[3]=1.0; //order
+    valueBottom[0]=0.0; //porosity nobc 
+    valueBottom[1]=0.0 ; //velocity  fixed velocity
+    valueBottom[2]=0.0; //effective pressure nobc  
+   
     std::vector<double> valueTop (DIMS);    
-    valueTop[0]=0.0; //porosity 
-    valueTop[1]=0; //1.53; //velocity
-    valueTop[2]=0.0; //pressure 
-    valueTop[3]=0.0; //order 
+    valueTop[0]=0.0; //porosity nobc
+    valueTop[1]=0.0; //velocity nobc
+    valueTop[2]=1.0; //pressure p0
 
     //bottom
     VectorTools::interpolate_boundary_values (dof_handler, 0, ConstantFunction<dim>(valueBottom), constraints, bottom);
@@ -313,6 +312,63 @@ namespace phaseField1
     Un=U; 
   }
 
+  //Calculate bubble Volume
+  template <int dim>
+  void phaseField<dim>::Phi_average (const unsigned int ITR)  {
+    TimerOutput::Scope t(computing_timer, "bubbleVolume");
+    const QGauss<dim>  quadrature_formula(FEOrder+1);
+    //   const QGauss<dim-1> face_quadrature_formula (2);
+    FEValues<dim> fe_values (fe, quadrature_formula,
+                           update_values    |  update_gradients |
+			     update_quadrature_points|update_JxW_values);
+    //unsigned int dofs_per_cell= fe_values.dofs_per_cell;
+    unsigned int n_q_points= fe_values.n_quadrature_points;
+    //const unsigned int faces_per_cell = GeometryInfo<dim>::faces_per_cell;
+  
+
+    std::vector<Vector<double> > quadSolutions;
+    for (unsigned int q=0; q<n_q_points; ++q){
+      quadSolutions.push_back(dealii::Vector<double>(DIMS)); //3 since there are three degrees of freedom per cell (phi,eta,c)
+    }
+  
+    typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
+  
+    double averagePhi=0;
+   
+    for (;cell!=endc; ++cell) {
+      if (cell->is_locally_owned()) {
+	fe_values.reinit(cell);
+	fe_values.get_function_values(Un, quadSolutions);
+	for (unsigned int q=0; q<n_q_points; ++q) {
+	  averagePhi+= (quadSolutions[q][0])*fe_values.JxW(q);
+	}
+      }
+      //++t_cell;
+    }
+
+    char buffer[200];
+    sprintf(buffer, "  Average of Phi is:     %14.9e\n", averagePhi);
+    pcout<<buffer;
+    
+    //std::ofstream myfile ("file.txt");
+    std::ofstream myfile("file.txt", std::ofstream::out | std::ofstream::app);
+
+    if (myfile.is_open())
+      {
+	myfile<<ITR<<" "<<averagePhi<<"\n";
+	//myfile << "This is another line.\n";
+	myfile.close();
+      }
+    else pcout << "Unable to open file";
+
+    // totalBubbleVolume=volumeTotal;
+    //surfaceAreaTotal= Utilities::MPI::sum(surfaceArea, mpi_communicator);
+    //sprintf(buffer, "  Surface Area of bubble is:     %14.9e\n", surfaceAreaTotal);
+    //pcout<<buffer;
+    //pcout << "  Volume of bubble  is :       "
+    //      <<volumeTotal <<std::endl;
+  }
+
   
   
   //Output
@@ -380,8 +436,13 @@ namespace phaseField1
      int NSTEP=(currentTime/dt);
      if (NSTEP%PSTEPS==0) {
        output_results(currentIncrement);
-       //writeSolutionsToFile(Un, tag);	
+       //writeSolutionsToFile(Un, tag)       
      }
+     
+     if (NSTEP%PSTEPS==0) {
+       Phi_average (currentIncrement);
+     }
+
      pcout << std::endl;
 
     }
