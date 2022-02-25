@@ -79,6 +79,7 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
 	for (unsigned int j = 0; j < dim; j++) {
 	  //R[i] +=(pow(phi[q],2))*fe_values.shape_value(i, q)*(phi[q]*(press_j[q][j]+1.0))*fe_values.JxW(q);
 	  R[i] +=(AA)*(pow(phi[q],2))*fe_values.shape_value(i, q)*(phi[q]*(press_j[q][j]+BB))*fe_values.JxW(q);
+	  //R[i] +=(AA)*(1.0)*fe_values.shape_value(i, q)*(phi[q]*(press_j[q][j]+BB))*fe_values.JxW(q);
 	}
       }
 
