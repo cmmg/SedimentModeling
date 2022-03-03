@@ -77,16 +77,19 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
 	//additing residual for the velocity equation
 	R[i] += (1.0)*fe_values.shape_value(i, q)*(vel[q])*fe_values.JxW(q);  
 	for (unsigned int j = 0; j < dim; j++) {
-	  //R[i] +=(pow(phi[q],2))*fe_values.shape_value(i, q)*(phi[q]*(press_j[q][j]+1.0))*fe_values.JxW(q);
-	  R[i] +=(AA)*(pow(phi[q],2))*fe_values.shape_value(i, q)*(phi[q]*(press_j[q][j]+BB))*fe_values.JxW(q);
-	  //R[i] +=(AA)*(1.0)*fe_values.shape_value(i, q)*(phi[q]*(press_j[q][j]+BB))*fe_values.JxW(q);
+	  //constant
+	  R[i] +=(AA)*(1.0)*fe_values.shape_value(i, q)*((press_j[q][j]+BB))*fe_values.JxW(q);
+	  // linear
+	  //R[i] +=(AA)*(pow(phi[q],1))*fe_values.shape_value(i, q)*((press_j[q][j]+BB))*fe_values.JxW(q);
+	  //cubic
+	  //R[i] +=(AA)*(pow(phi[q],3))*fe_values.shape_value(i, q)*((press_j[q][j]+BB))*fe_values.JxW(q);
+	  //higher order
+	  //R[i] +=(AA)*(pow(phi[q],5.86))*fe_values.shape_value(i, q)*((press_j[q][j]+BB))*fe_values.JxW(q);
+	  
 	}
       }
 
       else if(ck==2) {
-	//adding residual for the pressure equation
-	//R[i] +=(1.0)*(1.0)*(betaP)*(1.0/dt)*fe_values.shape_value(i, q)*(phi[q]*(press[q]-press_conv[q]))*fe_values.JxW(q);
-	//R[i] +=(1.0)*(1.0/ETA)*fe_values.shape_value(i, q)*(phi[q]*press[q])*fe_values.JxW(q);
 
 	R[i] +=(CC)*(1.0/dt)*fe_values.shape_value(i, q)*(phi[q]*(press[q]-press_conv[q]))*fe_values.JxW(q);
 	R[i] +=(DD)*fe_values.shape_value(i, q)*(phi[q]*press[q])*fe_values.JxW(q);

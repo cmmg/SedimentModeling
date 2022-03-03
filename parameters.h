@@ -32,7 +32,7 @@
 
 //parameters
 #define ALPHA (1.0/0.1938)   //(1.0/0.103) // 1/mb
-#define AA (4.95e-01)    //(7.14e-03)
+#define AA (3.52e+00)    //(7.14e-03)
 #define BB (2.46e-05)    //(7.14e-03)
 #define CC (2.91e-02)    //(7.14e-03)
 #define DD (5.02e-03)    //(7.14e-03)
