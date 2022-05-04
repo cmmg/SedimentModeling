@@ -51,7 +51,7 @@ namespace phaseField1
     void solve ();
     void refine_grid ();
     void output_results (const unsigned int increment);
-    void Phi_average (const unsigned int increment);
+    void Phi_average (const unsigned int increment, const double time);
     Triangulation<dim>                        triangulation;
     FESystem<dim>                             fe;
     DoFHandler<dim>                           dof_handler;
@@ -78,7 +78,8 @@ namespace phaseField1
     pcout (std::cout),
     computing_timer (pcout, TimerOutput::summary, TimerOutput::wall_times){
     //solution variables
-    dt=TimeStep; totalTime=TotalTime;
+    //    dt=TimeStep; totalTime=TotalTime;
+    totalTime=TotalTime;
     currentIncrement=0; currentTime=0;
 
     //nodal Solution names
@@ -297,7 +298,7 @@ namespace phaseField1
     currentIteration=0;
     char buffer[200];
     while (true){
-      if (currentIteration>=15){sprintf(buffer, "maximum number of iterations reached without convergence. \n"); pcout<<buffer; break;}
+      if (currentIteration>=NR_ITR){sprintf(buffer, "maximum number of iterations reached without convergence. \n"); pcout<<buffer; break;}
       if (current_norm>1/std::pow(tol,2)){sprintf(buffer, "\n norm is too high. \n\n"); pcout<<buffer; break; exit (1);}
       assemble_system();
       current_norm=system_rhs.l2_norm();
@@ -314,7 +315,7 @@ namespace phaseField1
 
   //Calculate bubble Volume
   template <int dim>
-  void phaseField<dim>::Phi_average (const unsigned int ITR)  {
+  void phaseField<dim>::Phi_average (const unsigned int ITR, const double time)  {
     TimerOutput::Scope t(computing_timer, "bubbleVolume");
     const QGauss<dim>  quadrature_formula(FEOrder+1);
     //   const QGauss<dim-1> face_quadrature_formula (2);
@@ -333,7 +334,7 @@ namespace phaseField1
   
     typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
   
-    double averagePhi=0;
+    double averagePhi=0,  averagePeff=0;;
    
     for (;cell!=endc; ++cell) {
       if (cell->is_locally_owned()) {
@@ -341,13 +342,14 @@ namespace phaseField1
 	fe_values.get_function_values(Un, quadSolutions);
 	for (unsigned int q=0; q<n_q_points; ++q) {
 	  averagePhi+= (quadSolutions[q][0])*fe_values.JxW(q);
+	  averagePeff+= (quadSolutions[q][2])*fe_values.JxW(q);
 	}
       }
       //++t_cell;
     }
 
     char buffer[200];
-    sprintf(buffer, "  Average of Phi is:     %14.9e\n", averagePhi);
+    sprintf(buffer, "  Average of Phi:     %14.9e, Average of Peff:     %14.9e :  \n", averagePhi, averagePeff);
     pcout<<buffer;
     
     //std::ofstream myfile ("file.txt");
@@ -355,7 +357,7 @@ namespace phaseField1
 
     if (myfile.is_open())
       {
-	myfile<<ITR<<" "<<averagePhi<<"\n";
+	myfile<<ITR<<" "<<time<<" "<<averagePhi<<" "<<averagePeff<<"\n";
 	//myfile << "This is another line.\n";
 	myfile.close();
       }
@@ -426,26 +428,41 @@ namespace phaseField1
     
     //sync ghost vectors to non-ghost vectors
     //  UGhost=U;  UnGhost=Un;
-      output_results (0);
+    output_results (0);
     
     //Time stepping
     currentIncrement=0;
-    for (currentTime=0; currentTime<totalTime; currentTime+=dt){
-      currentIncrement++;
+    currentTime=0;
+    
+    while (currentTime<totalTime) {
+      //for (currentTime=0; currentTime<totalTime; currentTime+=dt){
+
+      //change dt based on some logic
+      if (currentTime <=ceil_0) {dt=TimeStep_0; }
+      else if (currentTime > ceil_0 && currentTime <=ceil_1) {dt=TimeStep_1;}
+      else if (currentTime > ceil_1 && currentTime <=ceil_2) {dt=TimeStep_2;}
+      else if (currentTime > ceil_2 && currentTime <=ceil_3) {dt=TimeStep_3;}
+      
+      currentIncrement++;	
+      currentTime+=dt;
+
       solve(); 
-     int NSTEP=(currentTime/dt);
-     if (NSTEP%PSTEPS==0) {
-       output_results(currentIncrement);
-       //writeSolutionsToFile(Un, tag)       
-     }
-     
-     if (NSTEP%PSTEPS==0) {
-       Phi_average (currentIncrement);
-     }
-
+      int NSTEP=(currentTime/dt);
+      if (NSTEP%PSTEPS==0) {
+	output_results(currentIncrement);
+	//writeSolutionsToFile(Un, tag)       
+      }
+      
+      if (NSTEP%PSTEPS==0) {
+	Phi_average (currentIncrement,currentTime);
+      }
+      
      pcout << std::endl;
-
+     
     }
+
+
+    
     //computing_timer.print_summary ();
   }
 }

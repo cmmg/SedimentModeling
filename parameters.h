@@ -12,14 +12,31 @@
 
 //time step controls
 //dt 
-#define TimeStep 1.0e-3
+#define TimeStep 1.0e-1
+
+//Series of time step size
+#define TimeStep_0 1.0e-5
+#define TimeStep_1 1.0e-4
+#define TimeStep_2 1.0e-3
+#define TimeStep_3 1.0e-2
+
+//Series of time ceiling
+#define ceil_0 1.0e-2
+#define ceil_1 6.0e-2
+#define ceil_2 1.6e-1
+#define ceil_3 1.16e-0
+
 
 //Final time
-#define TotalTime (1000*TimeStep) // (5710*TimeStep)
+#define TotalTime (ceil_3) // (Slightly more than the non-dimenisonal time 1)
+
+//#define TotalTime (1000*TimeStep) // (5710*TimeStep)
 
 //Write solution file at PSTEPS interval 
-#define PSTEPS 10
+#define PSTEPS 1
 
+//Number of N-R interations
+#define NR_ITR 5  //increase when residual norm is not going down
 
 //output controls
 #define outputFileName "solution"
