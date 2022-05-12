@@ -35,6 +35,22 @@ namespace phaseField1
 
     }
   };
+
+  template <int dim>
+  struct ExportVariables{
+  public:
+    ExportVariables<dim>():
+      Time(0.0), Location(dim), Porosity(dim), Velocity(dim), Eff_Pressure(dim) {}
+    
+    //using std:::map to store time history variables                                                                                                                                                                                               
+    double Time;
+    dealii::Table<1, double > Location, Porosity,Velocity,Eff_Pressure;
+    //double  Location, Porosity ,Velocity,Eff_Pressure;
+    //Vector<double>  Location(dim), Porosity (dim),Velocity(dim),Eff_Pressure(dim);
+    //std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector< ExportVariables<dim>* > > Export;
+  };
+ 
+  
   
   template <int dim>
   class phaseField{
@@ -42,7 +58,7 @@ namespace phaseField1
     phaseField ();
     ~phaseField ();
     void run ();
-
+    
    private:
     void applyBoundaryConditions(const unsigned int increment);
     void setup_system ();
@@ -51,6 +67,7 @@ namespace phaseField1
     void solve ();
     void refine_grid ();
     void output_results (const unsigned int increment);
+    void output_results_txt (const unsigned int increment,const float time);
     void Phi_average (const unsigned int increment, const double time);
     Triangulation<dim>                        triangulation;
     FESystem<dim>                             fe;
@@ -63,14 +80,14 @@ namespace phaseField1
     TimerOutput                               computing_timer;
     SparsityPattern                           sparsity_pattern;
 
-    
     //solution variables
     unsigned int currentIncrement, currentIteration;
     double totalTime, currentTime, dt;
-    std::vector<std::string> nodal_solution_names; std::vector<DataComponentInterpretation::DataComponentInterpretation> nodal_data_component_interpretation;
-
+    std::vector<std::string> nodal_solution_names; std::vector<DataComponentInterpretation::DataComponentInterpretation> nodal_data_component_interpretation;    
+    std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector< ExportVariables<dim>* > > Export;
+    //std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector< ExportVariables<dim> > > Export;
   };
-
+  
   template <int dim>
   phaseField<dim>::phaseField ():
     fe(FE_Q<dim>(FEOrder),DIMS),
@@ -135,6 +152,8 @@ namespace phaseField1
     constraints2.close ();
 
   }
+
+  
   
   //Setup
   template <int dim>
@@ -157,6 +176,26 @@ namespace phaseField1
     // SparsityTools::distribute_sparsity_pattern (dsp, dof_handler.n_locally_owned_dofs_per_processor(), mpi_communicator, locally_relevant_dofs);
     sparsity_pattern.copy_from(dsp);
     system_matrix.reinit (sparsity_pattern);
+
+      //setup history variables                                                                                                                                                                                                                          
+    const unsigned int   dofs_per_cell = fe.dofs_per_cell;    
+    typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
+    for (; cell!=endc; ++cell){
+      if (cell->is_locally_owned()){
+        for (unsigned int i=0; i<dofs_per_cell ; i++){
+          Export[cell].push_back(new ExportVariables<dim>); //create histroy variables object at each quad point of the cell.                                                                                                                        
+          Export[cell].back()->Time=0.0;
+	  for(unsigned int j=0;j<dim;j++)
+	    {
+	      Export[cell].back()->Location[j]=0.0;
+	      Export[cell].back()->Porosity[j]=0.0;
+	      Export[cell].back()->Velocity[j]=0.0;
+	      Export[cell].back()->Eff_Pressure[j]=0.0;
+	    }
+
+        }
+      }
+    }  
   }
 
   //Setup                                                                                                                                  
@@ -354,7 +393,6 @@ namespace phaseField1
     
     //std::ofstream myfile ("file.txt");
     std::ofstream myfile("file.txt", std::ofstream::out | std::ofstream::app);
-
     if (myfile.is_open())
       {
 	myfile<<ITR<<" "<<time<<" "<<averagePhi<<" "<<averagePeff<<"\n";
@@ -394,6 +432,70 @@ namespace phaseField1
     
   }
 
+  //Output
+  template <int dim>
+  void phaseField<dim>::output_results_txt (const unsigned int cycle, const float time) {
+    TimerOutput::Scope t(computing_timer, "output_text");
+    //FEValues<dim> fe_values (fe);
+    const QGauss<dim>  quadrature_formula(FEOrder+1);
+    FEValues<dim> fe_values (fe, quadrature_formula,
+                             update_values    |  update_gradients |
+                             update_quadrature_points |update_JxW_values);
+    unsigned int dofs_per_cell= fe_values.dofs_per_cell;
+    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
+
+    const std::string filename = ("T-" +
+                                  Utilities::to_string (time, 2) );
+   
+    typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
+    //typename parallel::distributed::Triangulation<dim>::active_cell_iterator t_cell = triangulation.begin_active();
+   
+    for (;cell!=endc; ++cell) {
+      if (cell->is_locally_owned()) {
+	fe_values.reinit(cell);
+	cell->get_dof_indices (local_dof_indices);
+	for (unsigned int i=0; i<dofs_per_cell; ++i) {
+	  const unsigned int ci = fe_values.get_fe().system_to_component_index(i).first - 0;   
+	  if (ci==0) {
+	    //add phi
+	    Export[cell][i]->Porosity[0]=Un(local_dof_indices[i]);
+	  }
+	  
+	  if (ci==1) {
+	    //add vel
+	    Export[cell][i]->Velocity[0]=Un(local_dof_indices[i]);
+	  }
+
+	  if (ci==2) {
+	    //add eff press
+	    Export[cell][i]->Eff_Pressure[0]=Un(local_dof_indices[i]);
+	  }
+
+	  Export[cell][i]->Time=time;
+	} 
+      }
+
+
+      FILE *fp = fopen((filename + ".text").c_str(), "w");
+      typename std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector< ExportVariables<dim>* > >::iterator it = Export.begin();
+      if (fp){
+	for(; it != Export.end(); it++) {
+	  //fprintf(fp, "%s=%s\n", it->first, it->second);
+	  fprintf(fp, " %14.9e, %14.9e :  \n", it->first, it->second);
+	}
+      }
+      fclose(fp);
+      //++t_cell;
+    }
+
+    
+      
+    
+    //const std::string filename = ("solution-" +
+    //Utilities::to_string (time) );
+
+  }
+
   
 
   
@@ -428,12 +530,17 @@ namespace phaseField1
     
     //sync ghost vectors to non-ghost vectors
     //  UGhost=U;  UnGhost=Un;
-    output_results (0);
+    //output_results (0);
     
     //Time stepping
     currentIncrement=0;
     currentTime=0;
-    
+
+    pcout << "   coord. of mesh:       "
+    	  << triangulation.get_vertices()[0]
+    	  << std::endl;
+
+        
     while (currentTime<totalTime) {
       //for (currentTime=0; currentTime<totalTime; currentTime+=dt){
 
@@ -449,7 +556,8 @@ namespace phaseField1
       solve(); 
       int NSTEP=(currentTime/dt);
       if (NSTEP%PSTEPS==0) {
-	output_results(currentIncrement);
+	//output_results(currentIncrement);
+	output_results_txt(currentIncrement,currentTime);
 	//writeSolutionsToFile(Un, tag)       
       }
       

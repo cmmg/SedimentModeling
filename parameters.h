@@ -8,7 +8,7 @@
 #define globalRefinementFactor 0
 
 //No of grid points
-#define XSubRf 1000 //60
+#define XSubRf 20 //60
 
 //time step controls
 //dt 
@@ -33,7 +33,7 @@
 //#define TotalTime (1000*TimeStep) // (5710*TimeStep)
 
 //Write solution file at PSTEPS interval 
-#define PSTEPS 1
+#define PSTEPS 10
 
 //Number of N-R interations
 #define NR_ITR 5  //increase when residual norm is not going down

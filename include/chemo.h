@@ -10,6 +10,18 @@
 #include "supplementaryFunctions.h"
 #include <math.h>     
 
+/*
+template <int dim>
+struct ExportVariables{
+public:
+  ExportVariables<dim>():
+  time(0.0), Location(dim), Porosity(dim), Velocity(dim), Eff_Pressure(dim) {}
+  //using std:::map to store time history variables                                                                                                                                                                                               
+  double time;
+  dealii::Table<1, double > Location, Porosity,Velocity,Eff_Pressure;
+};
+
+*/
 //Chemistry residual implementation
 template <int dim>
 void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typename DoFHandler<dim>::active_cell_iterator &cell, double dt, dealii::Table<1, Sacado::Fad::DFad<double> >& ULocal, dealii::Table<1, double>& ULocalConv, dealii::Table<1, Sacado::Fad::DFad<double> >& R, double currentTime, double totalTime) {
