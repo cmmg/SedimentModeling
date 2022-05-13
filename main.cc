@@ -12,7 +12,7 @@
 //physics headers
 #include "include/chemo.h"
 //#include "include/mechanics.h"
-//#include "include/writeSolutions.h"
+//#include "include/writ>Solutions.h"
 
 
 //Namespace
@@ -38,13 +38,14 @@ namespace phaseField1
 
   template <int dim>
   struct ExportVariables{
-  public:
-    ExportVariables<dim>():
-      Time(0.0), Location(dim), Porosity(dim), Velocity(dim), Eff_Pressure(dim) {}
+    //public:
+    //ExportVariables<dim>():
+    //Time(0.0), Location(dim), Porosity(dim), Velocity(dim), Eff_Pressure(dim) {}
     
     //using std:::map to store time history variables                                                                                                                                                                                               
     double Time;
-    dealii::Table<1, double > Location, Porosity,Velocity,Eff_Pressure;
+    double Location, Porosity,Velocity,Eff_Pressure;
+    //dealii::Table<1, double > Location, Porosity,Velocity,Eff_Pressure;
     //double  Location, Porosity ,Velocity,Eff_Pressure;
     //Vector<double>  Location(dim), Porosity (dim),Velocity(dim),Eff_Pressure(dim);
     //std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector< ExportVariables<dim>* > > Export;
@@ -67,7 +68,7 @@ namespace phaseField1
     void solve ();
     void refine_grid ();
     void output_results (const unsigned int increment);
-    void output_results_txt (const unsigned int increment,const float time);
+    void output_results_txt (const unsigned int increment,const double time);
     void Phi_average (const unsigned int increment, const double time);
     Triangulation<dim>                        triangulation;
     FESystem<dim>                             fe;
@@ -84,8 +85,10 @@ namespace phaseField1
     unsigned int currentIncrement, currentIteration;
     double totalTime, currentTime, dt;
     std::vector<std::string> nodal_solution_names; std::vector<DataComponentInterpretation::DataComponentInterpretation> nodal_data_component_interpretation;    
-    std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector< ExportVariables<dim>* > > Export;
-    //std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector< ExportVariables<dim> > > Export;
+    //std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector< ExportVariables<dim>* > > Export;
+
+    std::map<typename DoFHandler<dim>::active_cell_iterator,std::vector<double> > Export;
+
   };
   
   template <int dim>
@@ -177,7 +180,10 @@ namespace phaseField1
     sparsity_pattern.copy_from(dsp);
     system_matrix.reinit (sparsity_pattern);
 
-      //setup history variables                                                                                                                                                                                                                          
+      //setup history variables
+
+
+    /*
     const unsigned int   dofs_per_cell = fe.dofs_per_cell;    
     typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
     for (; cell!=endc; ++cell){
@@ -195,7 +201,28 @@ namespace phaseField1
 
         }
       }
-    }  
+    }
+    */
+
+    
+    const unsigned int   dofs_per_cell = fe.dofs_per_cell;    
+    typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
+    //vector <double> 
+    for (; cell!=endc; ++cell){
+      if (cell->is_locally_owned()){
+	//Export[cell].push_back(double);
+	//Export[cell].push_back(0);
+	//Export[cell].push_back(0);
+	//Export[cell].push_back(0);
+	//Export[cell].push_back(0);
+	//Export[cell].push_back(0);
+      }
+    }
+    
+
+
+
+    
   }
 
   //Setup                                                                                                                                  
@@ -434,7 +461,7 @@ namespace phaseField1
 
   //Output
   template <int dim>
-  void phaseField<dim>::output_results_txt (const unsigned int cycle, const float time) {
+  void phaseField<dim>::output_results_txt (const unsigned int cycle, const double time) {
     TimerOutput::Scope t(computing_timer, "output_text");
     //FEValues<dim> fe_values (fe);
     const QGauss<dim>  quadrature_formula(FEOrder+1);
@@ -445,7 +472,10 @@ namespace phaseField1
     std::vector<unsigned int> local_dof_indices (dofs_per_cell);
 
     const std::string filename = ("T-" +
-                                  Utilities::to_string (time, 2) );
+                                Utilities::int_to_string (cycle, 2) );
+
+    //const std::string filename = ("T-" +
+    //                            Utilities::to_string (time, 2) );
    
     typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
     //typename parallel::distributed::Triangulation<dim>::active_cell_iterator t_cell = triangulation.begin_active();
@@ -454,44 +484,91 @@ namespace phaseField1
       if (cell->is_locally_owned()) {
 	fe_values.reinit(cell);
 	cell->get_dof_indices (local_dof_indices);
-	for (unsigned int i=0; i<dofs_per_cell; ++i) {
+	//std::cout <<"dof per cell is " << dofs_per_cell << " vertices per cell is " << GeometryInfo<dim>::vertices_per_cell << std::endl; 
+
+	//Export[cell][i]->Time=time;
+	Export[cell].push_back(time);
+	//for (unsigned int vertex=0; vertex<GeometryInfo<dim>::vertices_per_cell; ++vertex) {
+	for (unsigned int ver=0; ver<1; ++ver) {
+	  //Export[cell].push_back(GeometryInfo<dim>::unit_cell_vertex(vertex)[0]);
+	  Export[cell].push_back(cell->vertex(ver)[0]);
+	}
+	
+	//for (unsigned int i=0; i<dofs_per_cell; ++i) {
+	for (unsigned int i=0; i<3; ++i) {
 	  const unsigned int ci = fe_values.get_fe().system_to_component_index(i).first - 0;   
 	  if (ci==0) {
 	    //add phi
-	    Export[cell][i]->Porosity[0]=Un(local_dof_indices[i]);
+	    //Export[cell][i]->Porosity[0]=Un(local_dof_indices[i]);
+	    Export[cell].push_back(Un(local_dof_indices[i]));
 	  }
 	  
 	  if (ci==1) {
 	    //add vel
-	    Export[cell][i]->Velocity[0]=Un(local_dof_indices[i]);
+	    //Export[cell][i]->Velocity[0]=Un(local_dof_indices[i]);
+	    //Export[cell].Velocity=Un(local_dof_indices[i]);
+	    Export[cell].push_back(Un(local_dof_indices[i]));
 	  }
 
 	  if (ci==2) {
 	    //add eff press
-	    Export[cell][i]->Eff_Pressure[0]=Un(local_dof_indices[i]);
+	    //Export[cell][i]->Eff_Pressure[0]=Un(local_dof_indices[i]);
+	    //Export[cell].Eff_Pressure=Un(local_dof_indices[i]);
+	    Export[cell].push_back(Un(local_dof_indices[i]));	    
 	  }
-
-	  Export[cell][i]->Time=time;
-	} 
-      }
-
-
-      FILE *fp = fopen((filename + ".text").c_str(), "w");
-      typename std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector< ExportVariables<dim>* > >::iterator it = Export.begin();
-      if (fp){
-	for(; it != Export.end(); it++) {
-	  //fprintf(fp, "%s=%s\n", it->first, it->second);
-	  fprintf(fp, " %14.9e, %14.9e :  \n", it->first, it->second);
+	  //Export[cell]=time;
 	}
+	//++t_cell;
       }
-      fclose(fp);
-      //++t_cell;
     }
 
+    typename std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector<double>  >::iterator it = Export.begin();	
+    std::ofstream myfile((filename + ".text").c_str(), std::ofstream::out | std::ofstream::app);
+    if (myfile.is_open()) {
+      //char buffer[200];
+      //sprintf(buffer, "  Average of Phi:     %14.9e, Average of Peff:     %14.9e :  \n", averagePhi, averagePeff);
+      //pcout<<buffer;
+      myfile<<"Tim "<<"Pos "<<"Phi "<<"Vel "<<"Peff "<<std::endl ;
+      for(; it != Export.end(); it++) {
+	//myfile<<"Ce is : "<<it->first ;
+	int counter=0; 
+	for(auto it2 = it->second.begin(); it2 != it->second.end(); ++it2) {
+	  myfile<<" "<<*it2 ;
+	  //if (counter==0) myfile<<" ti is : "<<*it2 ;
+	  //if (counter==1) myfile<<" po is : "<<*it2 ;
+	  //if (counter==2) myfile<<" ph is : "<<*it2 ;
+	  //if (counter==3) myfile<<" ve is : "<<*it2 ;
+	  //if (counter==4) myfile<<" pe is : "<<*it2 ;
+	  //myfile << "This is another line.\n";
+	  counter=counter+1;
+	}
+	myfile<<std::endl ;
+      }
+      myfile.close();
+    }
+    else pcout << "Unable to open file";
+    Export.clear();
+
     
-      
-    
-    //const std::string filename = ("solution-" +
+	/*
+	FILE *fp = fopen((filename + ".text").c_str(), "w");	
+	if (fp){
+	  for(; it != Export.end(); it++) {
+	    //fprintf(fp, "%s=%s\n", it->first, it->second);
+	    //fprintf(fp, " %14.9e, %14.9e  \n", it->first, it->second);
+	    for(auto it2 = it->second.begin(); it2 != it->second.end(); ++it2) {
+	      fprintf(fp, "Val%14.9e ", *it2);
+	      if (it2 == it->second.end() ){fprintf(fp, "\n", " ");}
+	    }
+	  }
+
+	}
+	fclose(fp);
+	*/
+	
+
+
+      //const std::string filename = ("solution-" +
     //Utilities::to_string (time) );
 
   }
