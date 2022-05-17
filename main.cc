@@ -533,7 +533,7 @@ namespace phaseField1
 	//myfile<<"Ce is : "<<it->first ;
 	int counter=0; 
 	for(auto it2 = it->second.begin(); it2 != it->second.end(); ++it2) {
-	  myfile<<" "<<*it2 ;
+	  myfile<<" "<<std::setprecision (18) <<*it2;
 	  //if (counter==0) myfile<<" ti is : "<<*it2 ;
 	  //if (counter==1) myfile<<" po is : "<<*it2 ;
 	  //if (counter==2) myfile<<" ph is : "<<*it2 ;
