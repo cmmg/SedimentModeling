@@ -61,7 +61,7 @@ namespace phaseField1
     void run ();
     
    private:
-    void applyBoundaryConditions(const unsigned int increment);
+    void applyBoundaryConditions(const unsigned int increment, const double time, const double deltaLoad);
     void setup_system ();
     void assemble_system ();
     void solveIteration ();
@@ -119,7 +119,7 @@ namespace phaseField1
 
   //Apply boundary conditions
   template <int dim>
-  void phaseField<dim>::applyBoundaryConditions(const unsigned int increment){
+  void phaseField<dim>::applyBoundaryConditions(const unsigned int increment, const double time, const double deltaLoad){
     constraints.clear (); constraints2.clear ();  
     //constraints.reinit (locally_relevant_dofs);
     //constraints2.reinit (locally_relevant_dofs);
@@ -141,8 +141,10 @@ namespace phaseField1
     std::vector<double> valueTop (DIMS);    
     valueTop[0]=0.0; //porosity nobc
     valueTop[1]=0.0; //velocity nobc
-    valueTop[2]=1.0; //pressure p0
+    //valueTop[2]=1.0; //pressure p0
+    valueTop[2]=deltaLoad; //pressure p0
 
+    
     //bottom
     VectorTools::interpolate_boundary_values (dof_handler, 0, ConstantFunction<dim>(valueBottom), constraints, bottom);
     VectorTools::interpolate_boundary_values (dof_handler, 0, ZeroFunction<dim>(DIMS), constraints2, bottom);
@@ -172,7 +174,8 @@ namespace phaseField1
     
     
     //call applyBoundaryConditions to setup constraints matrix needed for generating the sparsity pattern
-    applyBoundaryConditions(0);
+    //applyBoundaryConditions(0);
+    applyBoundaryConditions(0,0,0); 
     
     DynamicSparsityPattern dsp (dof_handler.n_dofs());
     DoFTools::make_sparsity_pattern (dof_handler, dsp, constraints2, false);
@@ -285,7 +288,7 @@ namespace phaseField1
 	  local_rhs(i) = -R[i].val();
 	}
 
-	if ((currentIteration==0)&&(currentIncrement==1)){
+	if ((currentIteration==0) /*&&(currentIncrement==1)*/){
           constraints.distribute_local_to_global (local_matrix, local_rhs, local_dof_indices, system_matrix, system_rhs);
         }
         else{
@@ -328,7 +331,7 @@ namespace phaseField1
      SparseDirectUMFPACK A_direct;
      A_direct.initialize(system_matrix);
      A_direct.vmult(dU, system_rhs);
-     if ((currentIteration==0)&&(currentIncrement==1)){
+     if ((currentIteration==0) /*&&(currentIncrement==1)*/){
        constraints.distribute (dU);
      }
      else{
@@ -617,7 +620,8 @@ namespace phaseField1
     	  << triangulation.get_vertices()[0]
     	  << std::endl;
 
-        
+    double deltaLoad = 0, Load = 0;
+    
     while (currentTime<totalTime) {
       //for (currentTime=0; currentTime<totalTime; currentTime+=dt){
 
@@ -629,11 +633,21 @@ namespace phaseField1
       
       currentIncrement++;	
       currentTime+=dt;
+      if (currentTime <= RampUp ){
+	deltaLoad = dt/RampUp;
+	Load +=deltaLoad;
+      }
+      else {
+	deltaLoad=0;
+	pcout << "Load is : " <<Load<<std::endl;
+	
+      }
+      applyBoundaryConditions(currentIncrement,currentTime,deltaLoad);
 
       solve(); 
       int NSTEP=(currentTime/dt);
       if (NSTEP%PSTEPS==0) {
-	//output_results(currentIncrement);
+	output_results(currentIncrement);
 	output_results_txt(currentIncrement,currentTime);
 	//writeSolutionsToFile(Un, tag)       
       }

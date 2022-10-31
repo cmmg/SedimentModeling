@@ -26,6 +26,7 @@
 #define ceil_2 1.6e-1
 #define ceil_3 1.16e-0
 
+#define RampUp 6.94e-04 //Time at which Load is 15MPa
 
 //Final time
 #define TotalTime (ceil_3) // (Slightly more than the non-dimenisonal time 1)
