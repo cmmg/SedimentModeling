@@ -65,9 +65,20 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
     
   }
   
-  
+  double CC=0, CC1=0;
+  double DD=0;
+  double E[] =EE, tR[]=tRatio, tau[]=ttau;
+      
 
-   
+  CC= 1.0/E[0] ; 
+  CC=CC0*CC;
+  for (unsigned int i = 1; i < kcells; i++) {
+    CC1+= (1-std::exp(-currentTime*tR[i]))/E[i] ;
+    DD+= (std::exp(-currentTime*tR[i]))/E[i]/tau[i];
+  }
+  CC1=CC0*CC1;
+  DD=DD0*DD;
+        
   //evaluate Residual
   for (unsigned int i=0; i<dofs_per_cell; ++i) {
     //double ORDER;
@@ -90,11 +101,11 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
 	R[i] += (1.0)*fe_values.shape_value(i, q)*(vel[q])*fe_values.JxW(q);  
 	for (unsigned int j = 0; j < dim; j++) {
 	  //constant
-	  R[i] +=(AA)*(1.0)*fe_values.shape_value(i, q)*((press_j[q][j]+BB))*fe_values.JxW(q);
+	  //R[i] +=(AA)*(1.0)*fe_values.shape_value(i, q)*((press_j[q][j]+BB))*fe_values.JxW(q);
 	  // linear
 	  //R[i] +=(AA)*(pow(phi[q],1))*fe_values.shape_value(i, q)*((press_j[q][j]+BB))*fe_values.JxW(q);
 	  //cubic
-	  //R[i] +=(AA)*(pow(phi[q],3))*fe_values.shape_value(i, q)*((press_j[q][j]+BB))*fe_values.JxW(q);
+	  R[i] +=(AA)*(pow(phi[q],3))*fe_values.shape_value(i, q)*((press_j[q][j]+BB))*fe_values.JxW(q);
 	  //higher order
 	  //R[i] +=(AA)*(pow(phi[q],5.86))*fe_values.shape_value(i, q)*((press_j[q][j]+BB))*fe_values.JxW(q);
 	  
@@ -102,8 +113,9 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
       }
 
       else if(ck==2) {
-
+	
 	R[i] +=(CC)*(1.0/dt)*fe_values.shape_value(i, q)*(phi[q]*(press[q]-press_conv[q]))*fe_values.JxW(q);
+	R[i] +=(CC1)*(1.0/dt)*fe_values.shape_value(i, q)*(phi[q]*(press[q]-press_conv[q]))*fe_values.JxW(q);
 	R[i] +=(DD)*fe_values.shape_value(i, q)*(phi[q]*press[q])*fe_values.JxW(q);
 
 	for (unsigned int j = 0; j < dim; j++) {

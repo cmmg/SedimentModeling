@@ -8,22 +8,22 @@
 #define globalRefinementFactor 0
 
 //No of grid points
-#define XSubRf 20 //60
+#define XSubRf 40 //60
 
 //time step controls
 //dt 
 #define TimeStep 1.0e-1
 
 //Series of time step size
-#define TimeStep_0 1.0e-5
-#define TimeStep_1 1.0e-4
-#define TimeStep_2 1.0e-3
-#define TimeStep_3 1.0e-2
+#define TimeStep_0 1.0e-7
+#define TimeStep_1 1.0e-6
+#define TimeStep_2 1.0e-5
+#define TimeStep_3 1.0e-4
 
 //Series of time ceiling
-#define ceil_0 1.0e-2
-#define ceil_1 6.0e-2
-#define ceil_2 1.6e-1
+#define ceil_0 1.16e-3
+#define ceil_1 1.16e-2
+#define ceil_2 1.16e-1
 #define ceil_3 1.16e-0
 
 #define RampUp 6.94e-04 //Time at which Load is 15MPa
@@ -42,23 +42,21 @@
 //output controls
 #define outputFileName "solution"
 
-//parameters
-//#define ALPHA (1.0/0.2)   //(1.0/0.103) // 1/mb
-//#define betaP (1.57e-03)    //(7.14e-03)
-//#define ETA 1.0
-
 
 //parameters
-#define ALPHA (1.0/0.1938)   //(1.0/0.103) // 1/mb
-#define AA (3.52e+00)    //(7.14e-03)
-#define BB (2.46e-05)    //(7.14e-03)
-#define CC (2.91e-02)    //(7.14e-03)
-#define DD (5.02e-03)    //(7.14e-03)
+#define ALPHA (1.0/0.1938)// 1/mb
+#define AA (3.85e-02)    //
+#define BB (1.64e-05)    //
+#define CC0 (8.72e+06)    //
+#define DD0 (7.53e+11)    //
 
-
-
-//moving height velocity
-//#define Vel 0.16
 
 //domain size
-#define problemLength (1.0) //0.9302
+#define problemLength (1.0) 
+
+
+//Kelvin Cells
+#define kcells 4  //no. of kelvin cells + 1
+#define EE {3.4e+9, 1.3e+9, 9.1e+9, 6.4e+9} //E0,E1,E2,.......
+#define ttau {0, 1.0e+2, std::pow(10,3.4), std::pow(10.0,4.8)} //0,tau1,tau2,tau3, ...
+#define tRatio {0, 8.64e+2, 3.44e+1, 1.37e+0}// 0, 86400/tau1, 86400/tau2, ......
