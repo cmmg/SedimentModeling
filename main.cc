@@ -50,6 +50,12 @@ namespace phaseField1
     //Vector<double>  Location(dim), Porosity (dim),Velocity(dim),Eff_Pressure(dim);
     //std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector< ExportVariables<dim>* > > Export;
   };
+
+  template <int dim>
+  struct StressHistory{
+    //using std:::map to store time history variables                                                                                                                                                                                               
+    double quadP,time,Pressure;
+  };
  
   
   
@@ -69,6 +75,7 @@ namespace phaseField1
     void refine_grid ();
     void output_results (const unsigned int increment);
     void output_results_txt (const unsigned int increment,const double time);
+    void storeHistory (const unsigned int increment,const double time);
     void Phi_average (const unsigned int increment, const double time);
     Triangulation<dim>                        triangulation;
     FESystem<dim>                             fe;
@@ -88,7 +95,9 @@ namespace phaseField1
     //std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector< ExportVariables<dim>* > > Export;
 
     std::map<typename DoFHandler<dim>::active_cell_iterator,std::vector<double> > Export;
-
+    //std::map<typename DoFHandler<dim>::active_cell_iterator,std::vector<double> > History;
+    std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector<double> > History;
+    std::vector<double>  stress[XSubRf][3][2]; //#cell,#quadpoint#time,press
   };
   
   template <int dim>
@@ -220,12 +229,7 @@ namespace phaseField1
 	//Export[cell].push_back(0);
 	//Export[cell].push_back(0);
       }
-    }
-    
-
-
-
-    
+    }               
   }
 
   //Setup                                                                                                                                  
@@ -249,7 +253,10 @@ namespace phaseField1
     Vector<double>       local_rhs (dofs_per_cell);
     std::vector<unsigned int> local_dof_indices (dofs_per_cell);
     unsigned int n_q_points= fe_values.n_quadrature_points;
-  
+
+    //std::vector<double>  CellHist[3][2]; //#cell,#quadpoint#time,press
+    Table<2,std::vector<double> > CellHist(3,2); 
+    
     typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
     for (; cell!=endc; ++cell)
       if (cell->is_locally_owned()) {
@@ -265,16 +272,24 @@ namespace phaseField1
 	  ULocal[i].diff (i, dofs_per_cell);
 	  ULocalConv[i]= Un(local_dof_indices[i]);
 	}
-
+	
 		
 	//setup residual vector
 	Table<1, Sacado::Fad::DFad<double> > R(dofs_per_cell); 
 	for (unsigned int i=0; i<dofs_per_cell; ++i) {
 	  R[i]=0.0;
 	}
-	
+
+	for (unsigned int q=0; q<n_q_points; ++q) {
+	  CellHist[q][0]=stress[cell->active_cell_index()][q][0];
+	  CellHist[q][1]=stress[cell->active_cell_index()][q][1];
+	}
+
+	//std::cout<<"printing dt " <<CellHist[0][0][1]<<"\n";
 	//populate residual vector 
-	residualForChemo(fe_values, 0,cell, dt, ULocal, ULocalConv, R, currentTime, totalTime);
+	//residualForChemo(fe_values, 0,cell, dt, ULocal, ULocalConv, R, currentTime, totalTime);
+	residualForChemo(fe_values, 0,cell, dt, ULocal, ULocalConv, R, CellHist, currentTime, totalTime);
+	//residualForMechanics(fe_values, 0, ULocal, ULocalConv, defMap, currentIteration, history[cell], local_rhs, local_matrix);
 
 	
 	//evaluate Residual(R) and Jacobian(R')
@@ -379,7 +394,7 @@ namespace phaseField1
       U+=dU;  
       ++currentIteration;
     }
-    Un=U; 
+    Un=U;    
   }
 
   //Calculate bubble Volume
@@ -578,6 +593,86 @@ namespace phaseField1
 
   
 
+
+    //Output
+  template <int dim>
+  void phaseField<dim>::storeHistory(const unsigned int cycle, const double time) {
+    TimerOutput::Scope t(computing_timer, "output_text");
+    const QGauss<dim>  quadrature_formula(FEOrder+1);
+    FEValues<dim> fe_values (fe, quadrature_formula,
+                             update_values    |  update_gradients |
+                             update_quadrature_points |update_JxW_values);
+    unsigned int dofs_per_cell= fe_values.dofs_per_cell;
+    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
+
+
+    typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
+    unsigned int n_q_points= fe_values.n_quadrature_points;
+    std::vector<Vector<double> > quadSolutions;
+    //    std::vector<double>  stress[triangulation.n_global_active_cells()][n_q_points][2];
+
+
+    for (unsigned int q=0; q<n_q_points; ++q){
+      quadSolutions.push_back(dealii::Vector<double>(DIMS)); //4 since there are four degrees of freedom per cell (phi,eta,c,xi)
+    }
+
+    bool firstLine = true;
+    for (;cell!=endc; ++cell) {
+      const std::string filename = ("Cell-" +
+				    Utilities::to_string (cell->vertex(0)[0], 2) );      
+      if (cell->is_locally_owned()) {
+	fe_values.reinit(cell);
+	cell->get_dof_indices (local_dof_indices);
+	fe_values.get_function_values(Un, quadSolutions);
+	//History[cell].push_back(n_q_points); //Store quad points
+
+	for (unsigned int q=0; q<n_q_points; ++q) {
+	  Point<dim> quadPoint=fe_values.quadrature_point(q);                    
+	  //History[cell].push_back(quadPoint[0]); //Store quad point
+	  //History[cell].push_back(time); //Store time
+	  //History[cell].push_back(quadSolutions[q][DIMS-1]); //Store effective pressure
+	  stress[cell->active_cell_index()][q][0].push_back(time); //Store time
+	  stress[cell->active_cell_index()][q][1].push_back(quadSolutions[q][DIMS-1]); //Store effective pressure	  	  
+	}
+
+	/*
+	std::ofstream myfile((filename + ".text").c_str(), std::ofstream::out | std::ofstream::app);
+	if (myfile.is_open())
+	  {
+	    //myfile<<History[cell][0]<<" "<<History[cell][1]<<" "<<History[cell][2]<<"\n";
+	    //myfile << "This is another line.\n";
+	    myfile<<stress[cell->active_cell_index()][0][1][0]<<" "<<stress[cell->active_cell_index()][0][1][1]<<" "<<stress[cell->active_cell_index()][0][1][2]<<"\n";
+	    myfile.close();
+	  }
+	else pcout << "Unable to open file";
+	*/
+	
+      }
+    }
+
+    /*
+    typename std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector<double>  >::iterator it = History.begin();	
+    std::ofstream myfile((filename + ".text").c_str(), std::ofstream::out | std::ofstream::app);
+    if (myfile.is_open()) {
+      //char buffer[200];
+      //sprintf(buffer, "  Average of Phi:     %14.9e, Average of Peff:     %14.9e :  \n", averagePhi, averagePeff);
+      //pcout<<buffer;
+      myfile<<"Tim "<<"#q "<<"Pos "<<"Peff "<<std::endl ;
+      for(; it != History.end(); it++) {
+	int counter=0; 
+	for(auto it2 = it->second.begin(); it2 != it->second.end(); ++it2) {
+	  myfile<<" "<<std::setprecision (18) <<*it2;
+	  counter=counter+1;
+	}
+	myfile<<std::endl ;
+      }
+      myfile.close();
+    }
+    else pcout << "Unable to open file";
+    History.clear(); */
+    
+  }
+  
   
   //Solve problem
   template <int dim>
@@ -644,11 +739,12 @@ namespace phaseField1
       }
       applyBoundaryConditions(currentIncrement,currentTime,deltaLoad);
 
+      storeHistory(currentIncrement,currentTime);
       solve(); 
       int NSTEP=(currentTime/dt);
-      if (NSTEP%PSTEPS==0) {
+      if (NSTEP%PSTEPS2==0) {
 	output_results(currentIncrement);
-	output_results_txt(currentIncrement,currentTime);
+	//output_results_txt(currentIncrement,currentTime);
 	//writeSolutionsToFile(Un, tag)       
       }
       

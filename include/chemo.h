@@ -20,11 +20,35 @@ public:
   double time;
   dealii::Table<1, double > Location, Porosity,Velocity,Eff_Pressure;
 };
-
 */
+
+
+double Integration(double dtSize, double tTauRatio, std::vector<double>  &Time, std::vector<double>  &Peff) {
+  //no. of steps
+  double Integral=0;  
+  for (unsigned int row=0; row<Time.size(); ++row) {    
+    //func[0] is time
+    //func[1] is pressure
+    if(row==0) {
+      Integral+=0.5*dtSize*std::exp(Time[row]*tTauRatio)*Peff[row] ;   
+    }
+    else if (row==Time.size()-1) {
+      Integral+=0.5*dtSize*std::exp(Time[row]*tTauRatio)*Peff[row] ;   
+    }
+
+    else {
+      Integral+=dtSize*std::exp(Time[row]*tTauRatio)*Peff[row];    
+    }
+
+  }
+  
+  return Integral;
+}
+
+
 //Chemistry residual implementation
 template <int dim>
-void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typename DoFHandler<dim>::active_cell_iterator &cell, double dt, dealii::Table<1, Sacado::Fad::DFad<double> >& ULocal, dealii::Table<1, double>& ULocalConv, dealii::Table<1, Sacado::Fad::DFad<double> >& R, double currentTime, double totalTime) {
+void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typename DoFHandler<dim>::active_cell_iterator &cell, double dt, dealii::Table<1, Sacado::Fad::DFad<double> >& ULocal, dealii::Table<1, double>& ULocalConv, dealii::Table<1, Sacado::Fad::DFad<double> >& R, Table<2,std::vector<double> > &CellHist, double currentTime, double totalTime) {
   unsigned int dofs_per_cell= fe_values.dofs_per_cell;
   unsigned int n_q_points= fe_values.n_quadrature_points;
  
@@ -65,28 +89,28 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
     
   }
   
-  double CC=0, CC1=0;
-  double DD=0;
+  double CC=0;
+  double DD=0; 
   double E[] =EE, tR[]=tRatio, tau[]=ttau;
-      
+
 
   CC= 1.0/E[0] ; 
   CC=CC0*CC;
+  
   for (unsigned int i = 1; i < kcells; i++) {
-    CC1+= (1-std::exp(-currentTime*tR[i]))/E[i] ;
-    DD+= (std::exp(-currentTime*tR[i]))/E[i]/tau[i];
+    DD+= 1.0/E[i]/tau[i];
   }
-  CC1=CC0*CC1;
   DD=DD0*DD;
-        
+  
   //evaluate Residual
   for (unsigned int i=0; i<dofs_per_cell; ++i) {
     //double ORDER;
     const unsigned int ck = fe_values.get_fe().system_to_component_index(i).first - DOF;
+    dealii::Table<1,double> FF(n_q_points);
     
     for (unsigned int q=0; q<n_q_points; ++q) {
       Point<dim> qPoint=fe_values.quadrature_point(q);  
-         
+      
       if (ck==0) {
 	//adding residual for the continuity equation
 	R[i] += (1.0)*(1.0/dt)*fe_values.shape_value(i, q)*(phi[q]-phi_conv[q])*fe_values.JxW(q);
@@ -101,30 +125,33 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
 	R[i] += (1.0)*fe_values.shape_value(i, q)*(vel[q])*fe_values.JxW(q);  
 	for (unsigned int j = 0; j < dim; j++) {
 	  //constant
-	  //R[i] +=(AA)*(1.0)*fe_values.shape_value(i, q)*((press_j[q][j]+BB))*fe_values.JxW(q);
+	  R[i] +=(AA)*(1.0)*fe_values.shape_value(i, q)*((press_j[q][j]+BB))*fe_values.JxW(q);
 	  // linear
 	  //R[i] +=(AA)*(pow(phi[q],1))*fe_values.shape_value(i, q)*((press_j[q][j]+BB))*fe_values.JxW(q);
 	  //cubic
-	  R[i] +=(AA)*(pow(phi[q],3))*fe_values.shape_value(i, q)*((press_j[q][j]+BB))*fe_values.JxW(q);
+	  //R[i] +=(AA)*(pow(phi[q],3))*fe_values.shape_value(i, q)*((press_j[q][j]+BB))*fe_values.JxW(q);
 	  //higher order
 	  //R[i] +=(AA)*(pow(phi[q],5.86))*fe_values.shape_value(i, q)*((press_j[q][j]+BB))*fe_values.JxW(q);
 	  
 	}
       }
-
+      
       else if(ck==2) {
-	
-	R[i] +=(CC)*(1.0/dt)*fe_values.shape_value(i, q)*(phi[q]*(press[q]-press_conv[q]))*fe_values.JxW(q);
-	R[i] +=(CC1)*(1.0/dt)*fe_values.shape_value(i, q)*(phi[q]*(press[q]-press_conv[q]))*fe_values.JxW(q);
-	R[i] +=(DD)*fe_values.shape_value(i, q)*(phi[q]*press[q])*fe_values.JxW(q);
+	FF[q]=0;
+	for (unsigned int k = 1; k < kcells; k++) {
+	  FF[q]+= (std::exp(-currentTime*tR[k])/E[k]/tau[k]/tau[k])*Integration(dt,tR[k],CellHist[q][0],CellHist[q][1]);
+	}
+	FF[q]= FF0*FF[q];
 
+	R[i] +=(CC)*(1.0/dt)*fe_values.shape_value(i, q)*(phi[q]*(press[q]-press_conv[q]))*fe_values.JxW(q);
+	R[i] +=(DD)*fe_values.shape_value(i, q)*(phi[q]*press[q])*fe_values.JxW(q);
+	R[i] +=-fe_values.shape_value(i, q)*(phi[q]*FF[q])*fe_values.JxW(q);		
+		
 	for (unsigned int j = 0; j < dim; j++) {
 	  R[i] +=(1.0)*fe_values.shape_value(i, q)*(vel_j[q][j])*fe_values.JxW(q);
 	}
       }
-
-      
-      
+            
     }
   } 
   
