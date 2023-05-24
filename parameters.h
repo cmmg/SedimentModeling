@@ -8,17 +8,19 @@
 #define globalRefinementFactor 0
 
 //No of grid points
-#define XSubRf 40 //60
+#define XSubRf 10 //60
 
 //time step controls
 //dt 
-#define TimeStep 1.0e-1
+#define TimeStep 1.0e-7
+#define timeFactor 0.001
+#define maxdt 1.0e-4
 
 //Series of time step size
-#define TimeStep_0 1.0e-4
-#define TimeStep_1 1.0e-4
-#define TimeStep_2 1.0e-4
-#define TimeStep_3 1.0e-4
+#define TimeStep_0 5.0e-5
+#define TimeStep_1 5.0e-5
+#define TimeStep_2 5.0e-5
+#define TimeStep_3 5.0e-5
 
 //Series of time ceiling
 #define ceil_0 1.16e-3
@@ -30,6 +32,7 @@
 
 //Final time
 #define TotalTime (ceil_3) // (Slightly more than the non-dimenisonal time 1)
+#define tFactor 0.1*TotalTime
 
 //#define TotalTime (1000*TimeStep) // (5710*TimeStep)
 
@@ -58,7 +61,7 @@
 
 //Kelvin Cells
 #define kcells 4  //no. of kelvin cells + 1
-#define EE { 0.1545*3.38e+9, 0.1545*1.32e+9, 0.1545*9.15e+9, 0.1545*6.43e+9} //E0,E1,E2,.......
+#define EE { 0.82*0.1545*3.38e+9, 0.82*0.1545*1.32e+9, 0.82*0.1545*9.15e+9, 0.82*0.1545*6.43e+9} //E0,E1,E2,.......
 #define ttau {0, 9.86e+1, 2.51e+3, 6.22e+04} //0,tau1,tau2,tau3, ...
 #define tRatio {0, 876.71, 34.37, 1.39}// 0, 86400/tau1, 86400/tau2, ......
-#define method 0
+#define method 2

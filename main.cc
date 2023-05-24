@@ -11,6 +11,8 @@
 #include "parameters.h"
 //physics headers
 #include "include/chemo.h"
+//#include "include/historyclass.h"
+
 //#include "include/mechanics.h"
 //#include "include/writ>Solutions.h"
 
@@ -42,7 +44,8 @@ namespace phaseField1
     //ExportVariables<dim>():
     //Time(0.0), Location(dim), Porosity(dim), Velocity(dim), Eff_Pressure(dim) {}
     
-    //using std:::map to store time history variables                                                                                                                                                                                               
+    //using std:::map to store time history variables
+    
     double Time;
     double Location, Porosity,Velocity,Eff_Pressure;
     //dealii::Table<1, double > Location, Porosity,Velocity,Eff_Pressure;
@@ -51,14 +54,6 @@ namespace phaseField1
     //std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector< ExportVariables<dim>* > > Export;
   };
 
-
-  //template <int dim>
-  //struct StressHistory{
-    //using std:::map to store time history variables                                                                                                                                                                                               
-    //double integralOld;
-  //};
- 
-  
   
   template <int dim>
   class phaseField{
@@ -66,18 +61,24 @@ namespace phaseField1
     phaseField ();
     ~phaseField ();
     void run ();
-    
+    std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector< historyVariables<dim>* > > History;                                                                                           
+    //std::vector<double>  HistoryTable[XSubRf][3][2];     
+    //dealii::Table<3,double >  HistoryTable[XSubRf][3][3];
+    std::vector<std::vector<std::vector<double>>> HistoryTable;
+    std::vector<std::vector<std::vector<double>>> IntegralTable;
+    double Peffective;
+ 
    private:
     void applyBoundaryConditions(const unsigned int increment, const double time, const double deltaLoad);
     void setup_system ();
     void assemble_system ();
-    void solveIteration ();
+    void solveIteration (const unsigned int increment);
     void solve ();
     void refine_grid ();
     void output_results (const unsigned int increment);
     void output_results_txt (const unsigned int increment,const double time);
-    void storeHistory (const unsigned int increment,const double time);
-    void Phi_average (const unsigned int increment, const double time);
+    void storeHistory (const unsigned int increment,const double time, const double tR[], const double eC[], const double tauC[], const double Peffective);
+    double Phi_average (const unsigned int increment, const double time);
     Triangulation<dim>                        triangulation;
     FESystem<dim>                             fe;
     DoFHandler<dim>                           dof_handler;
@@ -98,9 +99,12 @@ namespace phaseField1
     std::map<typename DoFHandler<dim>::active_cell_iterator,std::vector<double> > Export;
     //std::map<typename DoFHandler<dim>::active_cell_iterator,std::vector<double> > History;
     //std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector<double> > History;
-    std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector< historyVariables<dim>* > > History;
+    //std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector< historyVariables<dim>* > > History;
 
+    //dealii::Table<3,double > HistoryTable(40,3,3); //cell, quadpoint, kcellno    
     std::vector<double>  stress[XSubRf][3][2]; //#cell,#quadpoint#time,press
+    //const Table<3,double >  HistoryTable[XSubRf][3][3];
+
   };
   
   template <int dim>
@@ -110,7 +114,7 @@ namespace phaseField1
     pcout (std::cout),
     computing_timer (pcout, TimerOutput::summary, TimerOutput::wall_times){
     //solution variables
-    //    dt=TimeStep; totalTime=TotalTime;
+    dt=TimeStep;
     totalTime=TotalTime;
     currentIncrement=0; currentTime=0;
 
@@ -195,23 +199,33 @@ namespace phaseField1
     sparsity_pattern.copy_from(dsp);
     system_matrix.reinit (sparsity_pattern);
 
-      //setup history variables
-
+    //setup history variables
+    //HistoryTable.fill(0,true);
+    
     //setup history variables
     const QGauss<dim>  quadrature_formula(FEOrder+1);
     FEValues<dim> fe_values (fe, quadrature_formula, update_values);
     typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
     for (; cell!=endc; ++cell){
       if (cell->is_locally_owned()){
+	std::vector<std::vector<double>> v2d;
+	
+	//History[cell]=new std::vector< historyVariables<dim>* > (fe_values.n_quadrature_points );
 	for (unsigned int q=0; q<fe_values.n_quadrature_points; q++){
 	  History[cell].push_back(new historyVariables<dim>); //create histroy variables object at each quad point of the cell.
 	  History[cell].back()->integralOld=0.0;
+	  std::vector<double> v1d;
+	  
 	  for(unsigned int k=0;k<kcells;k++)
 	    {
-	      History[cell].back()->integralOldCells[k]=0.0;	      
+	      History[cell].back()->integralOldCells[k]=0.0;
+	      v1d.push_back(0);
 	    }
+	   v2d.push_back(v1d);
 	  
 	}
+	HistoryTable.push_back(v2d);
+	IntegralTable.push_back(v2d);
       }
     }
 
@@ -244,6 +258,7 @@ namespace phaseField1
 
     //std::vector<double>  CellHist[3][2]; //#cell,#quadpoint#time,press
     Table<2,std::vector<double> > CellHist(3,2); 
+    Table<2,double > HistoryCellTable(3,4);
     
     typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
     for (; cell!=endc; ++cell)
@@ -271,16 +286,19 @@ namespace phaseField1
 	for (unsigned int q=0; q<n_q_points; ++q) {
 	  CellHist[q][0]=stress[cell->active_cell_index()][q][0];
 	  CellHist[q][1]=stress[cell->active_cell_index()][q][1];
+	  for (unsigned int k=0; k<kcells; ++k) {	 
+	    //HistoryCellTable[q][k]=HistoryTable[cell->active_cell_index()][q][k];
+	    HistoryCellTable[q][k]=IntegralTable[cell->active_cell_index()][q][k];
+
+	  }
 	}
 
 	//std::cout<<"printing dt " <<CellHist[0][0][1]<<"\n";
 	//populate residual vector 
-	//residualForChemo(fe_values, 0,cell, dt, ULocal, ULocalConv, R, currentTime, totalTime);
-	//residualForChemo(fe_values, 0,cell, dt, ULocal, ULocalConv, R, CellHist, currentTime, totalTime);
-	residualForChemo(fe_values, 0,cell, dt, ULocal, ULocalConv, R, History[cell], CellHist, currentTime, totalTime);
-	//residualForMechanics(fe_values, 0, ULocal, ULocalConv, defMap, currentIteration, history[cell], local_rhs, local_matrix);
+	//residualForChemo(fe_values, 0,cell, dt, ULocal, ULocalConv, R, History[cell], CellHist, currentTime, totalTime);
+	//residualForChemo(fe_values, 0,cell, dt, ULocal, ULocalConv, R, History[cell], CellHist, currentIteration ,currentTime, totalTime);
+	residualForChemo(fe_values, 0,cell, dt, ULocal, ULocalConv, R, History[cell], HistoryCellTable, CellHist, currentIteration ,currentTime, totalTime, Peffective);                                                              
 
-	
 	//evaluate Residual(R) and Jacobian(R')
 	for (unsigned int i=0; i<dofs_per_cell; ++i) {
 	  for (unsigned int j=0; j<dofs_per_cell; ++j){
@@ -306,7 +324,7 @@ namespace phaseField1
 
   }
   
-  
+  /*
   //Solve
   template <int dim>
   void phaseField<dim>::solveIteration(){
@@ -331,21 +349,55 @@ namespace phaseField1
 	              << std::endl;
     */
 
-    
+    /*
      SparseDirectUMFPACK A_direct;
      A_direct.initialize(system_matrix);
      A_direct.vmult(dU, system_rhs);
-     if ((currentIteration==0) /*&&(currentIncrement==1)*/){
+     if ((currentIteration==0) ){
        constraints.distribute (dU);
      }
      else{
       constraints2.distribute (dU);
      }
        
-  }
+  }*/
   
+                                                                                                                                                                                                   
+  //Solve                                                                                                                                                                                                
+  template <int dim>                                                                                                                                                                                     
+  void phaseField<dim>::solveIteration(unsigned int currentIncrement){                                                                                                                                                                
+    TimerOutput::Scope t(computing_timer, "solve");                                                                                                                                                      
+    //LA::MPI::Vector completely_distributed_solution (locally_owned_dofs, mpi_communicator);                                                                                                            
+    //Direct solver MUMPS
 
-  /*
+    if (0) {
+    SolverControl           cn(1000,1.0e-12);                                                                                                                                                          
+    SolverCG<>              cg (cn);                                                                                                                                                                     
+    cg.solve (system_matrix, dU, system_rhs,                                                                                                                                                                            PreconditionIdentity());                                                                                                                                                                  
+    if ((currentIteration==0)&&(currentIncrement==1)){                                                                                                                                                   
+      constraints.distribute (dU);                                                                                                                                                                       
+    }                                                                                                                                                                                                    
+    else{                                                                                                                                                                                                       constraints2.distribute (dU);                                                                                                                                                                     
+    }                                                                                                                                                                                                                                                                                                                                                                                                           
+    std::cout << "   " << cn.last_step()                                                                                                                                                                 
+              << " CG iterations needed to obtain convergence."                                                                                                                                                                 << std::endl;                                                                                                                                                                           }
+    else {
+                                                                                                                                                                                                   
+     SparseDirectUMFPACK A_direct;                                                                                                                                                                       
+     A_direct.initialize(system_matrix);                                                                                                                                                                 
+     A_direct.vmult(dU, system_rhs);                                                                                                                                                                     
+     if ((currentIteration==0) ){                                                                                                                                                                        
+       constraints.distribute (dU);                                                                                                                                                                      
+     }                                                                                                                                                                                                   
+     else{                                                                                                                                                                                               
+      constraints2.distribute (dU);                                                                                                                                                                      
+      }
+    }
+     
+  }
+
+  
+  /*  
   //Solve
   template <int dim>
  void phaseField<dim>::solveIteration(){
@@ -353,15 +405,18 @@ namespace phaseField1
     //LA::MPI::Vector completely_distributed_solution (locally_owned_dofs, mpi_communicator);
     //Direct solver MUMPS  
     SolverControl cn;
-    PETScWrappers::SparseDirectMUMPS solver(cn, mpi_communicator);
+    SparseDirectMUMPS solver(cn);
     solver.set_symmetric_mode(false);
-    solver.solve(system_matrix, completely_distributed_solution, system_rhs);
-    constraints.distribute (completely_distributed_solution);
-    locally_relevant_solution = completely_distributed_solution;
-    dU = completely_distributed_solution;    
+    solver.solve(system_matrix, du, system_rhs);
+    if ((currentIteration==0) ){                                                                                                                                                                         
+      constraints.distribute (dU);                                                                                                                                                                       
+    }                                                                                                                                                                                                   
+    else{                                                                                                                                                                                               
+      constraints2.distribute (dU);                                                                                                                                                                      
+     }           
   }
-
-  */
+*/
+  
   
   //Solve
   template <int dim>
@@ -379,7 +434,7 @@ namespace phaseField1
       res=current_norm/initial_norm;
       sprintf(buffer,"inc:%3u (time:%10.3e, dt:%10.3e), iter:%2u, abs-norm: %10.2e, rel-norm: %10.2e\n", currentIncrement, currentTime, dt,  currentIteration, current_norm, res); pcout<<buffer; 
       if ((currentIteration>1) && ((res<tol) || (current_norm<abs_tol))){sprintf(buffer,"residual converged in %u iterations.\n\n", currentIteration); pcout<<buffer; break;}
-      solveIteration();
+      solveIteration(currentIncrement);
       U+=dU;  
       ++currentIteration;
     }
@@ -388,7 +443,7 @@ namespace phaseField1
 
   //Calculate bubble Volume
   template <int dim>
-  void phaseField<dim>::Phi_average (const unsigned int ITR, const double time)  {
+  double phaseField<dim>::Phi_average (const unsigned int ITR, const double time)  {
     TimerOutput::Scope t(computing_timer, "bubbleVolume");
     const QGauss<dim>  quadrature_formula(FEOrder+1);
     //   const QGauss<dim-1> face_quadrature_formula (2);
@@ -441,6 +496,8 @@ namespace phaseField1
     //pcout<<buffer;
     //pcout << "  Volume of bubble  is :       "
     //      <<volumeTotal <<std::endl;
+
+    return averagePeff;
   }
 
   
@@ -585,7 +642,7 @@ namespace phaseField1
 
     //Output
   template <int dim>
-  void phaseField<dim>::storeHistory(const unsigned int cycle, const double time) {
+  void phaseField<dim>::storeHistory(const unsigned int cycle, const double time, const double tR[], const double eC[], const double tauC[], const double Peffective ) {
     TimerOutput::Scope t(computing_timer, "output_text");
     const QGauss<dim>  quadrature_formula(FEOrder+1);
     FEValues<dim> fe_values (fe, quadrature_formula,
@@ -593,7 +650,7 @@ namespace phaseField1
                              update_quadrature_points |update_JxW_values);
     unsigned int dofs_per_cell= fe_values.dofs_per_cell;
     std::vector<unsigned int> local_dof_indices (dofs_per_cell);
-
+    double timeSize =0, f0 = 0, f1 = 0;
 
     typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
     unsigned int n_q_points= fe_values.n_quadrature_points;
@@ -605,6 +662,7 @@ namespace phaseField1
       quadSolutions.push_back(dealii::Vector<double>(DIMS)); //4 since there are four degrees of freedom per cell (phi,eta,c,xi)
     }
 
+    double checkPressure =0 ;
     bool firstLine = true;
     for (;cell!=endc; ++cell) {
       const std::string filename = ("Cell-" +
@@ -613,11 +671,47 @@ namespace phaseField1
 	fe_values.reinit(cell);
 	cell->get_dof_indices (local_dof_indices);
 	fe_values.get_function_values(Un, quadSolutions);
-
+	
 	for (unsigned int q=0; q<n_q_points; ++q) {
 	  Point<dim> quadPoint=fe_values.quadrature_point(q);                    
 	  stress[cell->active_cell_index()][q][0].push_back(time); //Store time
 	  stress[cell->active_cell_index()][q][1].push_back(quadSolutions[q][DIMS-1]); //Store effective pressure
+
+	  //Trapezoidal rule
+	  for (unsigned int k=1; k<kcells; ++k) {
+	    //timesize
+	    int last = stress[cell->active_cell_index()][q][0].size();
+	    if (last>=2) {
+	       timeSize = stress[cell->active_cell_index()][q][0][last-1]-stress[cell->active_cell_index()][q][0][last-2];
+	       f1 = (1.0/eC[k]/tauC[k]/tauC[k])*std::exp(stress[cell->active_cell_index()][q][0][last-1]*tR[k])*stress[cell->active_cell_index()][q][1][last-1];
+	       f0 = (1.0/eC[k]/tauC[k]/tauC[k])*std::exp(stress[cell->active_cell_index()][q][0][last-2]*tR[k])*stress[cell->active_cell_index()][q][1][last-2];
+	       checkPressure = stress[cell->active_cell_index()][q][1][last-1];
+	    }
+	    else if (last==1) {
+	       timeSize = stress[cell->active_cell_index()][q][0][last-1];
+               f1 = (1.0/eC[k]/tauC[k]/tauC[k])*std::exp(stress[cell->active_cell_index()][q][0][last-1]*tR[k])*stress[cell->active_cell_index()][q][1][last-1];
+               f0 = 0 ;
+	    }
+	    else if (last==0) {
+	      timeSize = 0;
+	      f1 = 0;
+	      f0 = 0;
+	    }
+	    
+	    HistoryTable[cell->active_cell_index()][q][k]+=(0.5*timeSize*(f0+f1));
+	    bool checkNan = std::isnan(HistoryTable[cell->active_cell_index()][q][k] ) ;
+	    bool checkInf = std::isinf(HistoryTable[cell->active_cell_index()][q][k] ) ;
+	    if (Peffective >= 1.0 ) {
+	      IntegralTable[cell->active_cell_index()][q][k]=(1-std::exp(-time*tR[k]))*stress[cell->active_cell_index()][q][1][last-1]/eC[k]/tauC[k] ;			    
+	    }
+
+	    else  {
+	      IntegralTable[cell->active_cell_index()][q][k]=std::exp(-stress[cell->active_cell_index()][q][0][last-1]*tR[k])*HistoryTable[cell->active_cell_index()][q][k];	      
+	    }
+	    
+	    //std::cout << "Integral Table and Pressure is " << IntegralTable[cell->active_cell_index()][q][k]<< " and " << stress[cell->active_cell_index()][q][1][last-1] <<std::endl;
+	    
+	  }
 	  
 	  if (q==0) {
 	    std::ofstream myfile((filename + ".text").c_str(), std::ofstream::out | std::ofstream::app);
@@ -678,18 +772,22 @@ namespace phaseField1
     	  << std::endl;
 
     double deltaLoad = 0, Load = 0;
-    
-    while (currentTime<totalTime) {
-      //for (currentTime=0; currentTime<totalTime; currentTime+=dt){
-
+    Peffective=0;
+    // while (currentTime<totalTime) {
+    for (currentTime=0; currentTime<totalTime; currentTime+=dt){
       //change dt based on some logic
-      if (currentTime <=ceil_0) {dt=TimeStep_0; }
-      else if (currentTime > ceil_0 && currentTime <=ceil_1) {dt=TimeStep_1;}
-      else if (currentTime > ceil_1 && currentTime <=ceil_2) {dt=TimeStep_2;}
-      else if (currentTime > ceil_2 && currentTime <=ceil_3) {dt=TimeStep_3;}
+      //if (currentTime <=ceil_0) {dt=TimeStep_0; }
+      //else if (currentTime > ceil_0 && currentTime <=ceil_1) {dt=TimeStep_1;}
+      //else if (currentTime > ceil_1 && currentTime <=ceil_2) {dt=TimeStep_2;}
+      //else if (currentTime > ceil_2 && currentTime <=ceil_3) {dt=TimeStep_3;}
       
-      currentIncrement++;	
-      currentTime+=dt;
+      currentIncrement++;
+      if (dt < maxdt) {
+	dt=(1.0+timeFactor)*dt;
+      }
+      //currentTime+=dt;
+
+      
       if (currentTime <= RampUp ){
 	deltaLoad = dt/RampUp;
 	Load +=deltaLoad;
@@ -701,9 +799,14 @@ namespace phaseField1
       }
       applyBoundaryConditions(currentIncrement,currentTime,deltaLoad);
 
-      storeHistory(currentIncrement,currentTime);
-      solve(); 
-      int NSTEP=(currentTime/dt);
+      double tR[]=tRatio;
+      double eC[]=EE;
+      double tauC[]=ttau;
+      //storeHistory(currentIncrement,currentTime,tR,eC,tauC);
+      solve();
+      //int NSTEP=(currentTime/dt);
+      int NSTEP=(currentIncrement);
+
       if (NSTEP%PSTEPS2==0) {
 	output_results(currentIncrement);
 	output_results_txt(currentIncrement,currentTime);
@@ -711,9 +814,10 @@ namespace phaseField1
       }
       
       if (NSTEP%PSTEPS==0) {
-	Phi_average (currentIncrement,currentTime);
+	Peffective=Phi_average (currentIncrement,currentTime);
       }
       
+      storeHistory(currentIncrement,currentTime,tR,eC,tauC,Peffective);
      pcout << std::endl;
      
     }

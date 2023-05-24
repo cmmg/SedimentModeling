@@ -9,19 +9,9 @@
 #include "functionEvaluations.h"
 #include "supplementaryFunctions.h"
 #include <math.h>     
+//#include "historyclass.h"
 
-/*
-template <int dim>
-struct ExportVariables{
-public:
-  ExportVariables<dim>():
-  time(0.0), Location(dim), Porosity(dim), Velocity(dim), Eff_Pressure(dim) {}
-  //using std:::map to store time history variables                                                                                                                                                                                               
-  double time;
-  dealii::Table<1, double > Location, Porosity,Velocity,Eff_Pressure;
-};
-*/
-
+                                                                                                                                                                    
 template <int dim>
 struct historyVariables{
 public:
@@ -36,18 +26,19 @@ public:
   dealii::Table<1, double > integralOldCells;
 };
 
-
+/*
 template <class T, int dim>
-  void Integration(double dt, unsigned int q, double currentTime, std::vector<historyVariables<dim>*>& History, Table<1, double>& Integral ,  double tTauRatio[], std::vector<double>  &Time, std::vector<double>  &Peff){ 
-
-  if (currentTime=dt){
-    History[q]->integralOld=0;
-    for(unsigned int k=1;k<kcells;k++)
-      {
-	History[q]->integralOldCells[k]=0.0;
-      }
+  void Integration(double dt, unsigned int q, unsigned int currentIteration, double currentTime, std::vector<historyVariables<dim>*>& History, Table<1, double>& Integral ,  double tTauRatio[], std::vector<double>  &Time, std::vector<double>  &Peff){  
+  if (currentIteration==0) {
+    std::cout <<"vale of History is : " <<History[q]->integralOldCells[2]<<std::endl;
+    if (currentTime=dt){
+      History[q]->integralOld=0;
+      for(unsigned int k=1;k<kcells;k++)
+	{
+	  History[q]->integralOldCells[k]=0.0;
+	}
     
-  }
+    }
   
   //Do the numerical integral  
   //no. of steps
@@ -59,31 +50,71 @@ template <class T, int dim>
   }
   
   double timeSize= Time[last]-Time[secLast];
-  double valIntegral=0;
-
-  /*
-  valIntegral=0.5*std::exp(Time[last]*tTauRatio)*Peff[last];
-  valIntegral+=0.5*std::exp(Time[secLast]*tTauRatio)*Peff[secLast];
-  valIntegral= timeSize*valIntegral;
-  Integral[q]= valIntegral +   History[q]->integralOld ;
-  */
-
   for(unsigned int k=1;k<kcells;k++){
     double valIntegral=0;  
     valIntegral=0.5*std::exp(Time[last]*tTauRatio[k])*Peff[last];
     valIntegral+=0.5*std::exp(Time[secLast]*tTauRatio[k])*Peff[secLast];
     valIntegral= timeSize*valIntegral;
-    Integral[k]= valIntegral +   History[q]->integralOldCells[k] ;    
+    //Integral[k]= valIntegral +   History[q]->integralOldCells[k] ;
+    History[q]->integralOldCells[k]=History[q]->integralOldCells[k]+0.0001 ;
+
   }
   
   //update latest integral to history variables
-  History[q]->integralOld=Integral[0];
+  //History[q]->integralOld=Integral[0];
   for(unsigned int k=1;k<kcells;k++)
     {
-      History[q]->integralOldCells[k]=Integral[k];
+      //History[q]->integralOldCells[k]=Integral[k];
     }
-  
+
+  }
+} */
+
+
+template <class T, int dim>
+  void Integration(double dt, unsigned int q, unsigned int currentIteration, double currentTime, std::vector<historyVariables<dim>*>& History, Table<1, double>& Integral ,  double tTauRatio[], std::vector<double>  &Time, std::vector<double>  &Peff, Table<2, double>& HistoryCellTable){
+  if (currentIteration==0) {
+    std::cout <<"vale of HistoryCellTable is : " <<HistoryCellTable[1][1]<<std::endl;
+    if (currentTime=dt){
+      History[q]->integralOld=0;
+      for(unsigned int k=1;k<kcells;k++)
+        {
+          History[q]->integralOldCells[k]=0.0;
+        }
+
+    }
+
+  //Do the numerical integral                                                                                                                                                                                                                                                                                                                                    
+  //no. of steps                                                                                                                                                                                                                                                                                                                                                 
+  int last=0,secLast=0;
+  //find last and second last time and pressure if they are not negative                                                                                                                                                                                                                                                                                         
+  if (Time.size()>1) {
+    last = Time.size()-1;
+    secLast=Time.size()-2;
+  }
+
+  double timeSize= Time[last]-Time[secLast];
+  for(unsigned int k=1;k<kcells;k++){
+    double valIntegral=0;
+    valIntegral=0.5*std::exp(Time[last]*tTauRatio[k])*Peff[last];
+    valIntegral+=0.5*std::exp(Time[secLast]*tTauRatio[k])*Peff[secLast];
+    valIntegral= timeSize*valIntegral;
+    //Integral[k]= valIntegral +   History[q]->integralOldCells[k] ;                                                                                                                                                                                                                                                                                             
+    History[q]->integralOldCells[k]=History[q]->integralOldCells[k]+0.0001 ;
+
+  }
+
+  //update latest integral to history variables                                                                                                                                                                                                                                                                                                                  
+  //History[q]->integralOld=Integral[0];                                                                                                                                                                                                                                                                                                                         
+  for(unsigned int k=1;k<kcells;k++)
+    {
+      //History[q]->integralOldCells[k]=Integral[k];                                                                                                                                                                                                                                                                                                             
+    }
+
+  }
 }
+
+
 
 
 double trapezoidal(double dtSize, double tTauRatio, std::vector<double>  &Time, std::vector<double>  &Peff) {
@@ -170,13 +201,11 @@ double higherOrderIntegral(double dtSize, double tTauRatio, std::vector<double> 
      
   return valueIntegral;
 }
-
-
-
-
+             
 //Chemistry residual implementation
 template <int dim>
-void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typename DoFHandler<dim>::active_cell_iterator &cell, double dt, dealii::Table<1, Sacado::Fad::DFad<double> >& ULocal, dealii::Table<1, double>& ULocalConv, dealii::Table<1, Sacado::Fad::DFad<double> >& R, std::vector<historyVariables<dim>*>& History, Table<2,std::vector<double> > &CellHist, double currentTime, double totalTime) {
+void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typename DoFHandler<dim>::active_cell_iterator &cell, double dt, dealii::Table<1, Sacado::Fad::DFad<double> >& ULocal, dealii::Table<1, double>& ULocalConv, dealii::Table<1, Sacado::Fad::DFad<double> >& R, std::vector<historyVariables<dim>*>& History,Table<2,double > &HistoryCellTable, Table<2,std::vector<double> > &CellHist,unsigned int currentIteration ,double currentTime, double totalTime, double Peffective) {
+
   unsigned int dofs_per_cell= fe_values.dofs_per_cell;
   unsigned int n_q_points= fe_values.n_quadrature_points;
  
@@ -270,22 +299,41 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
 	  for (unsigned int k = 1; k < kcells; k++) {
 	    FF[q]+=(std::exp(-currentTime*tR[k])/E[k]/tau[k]/tau[k])*trapezoidal(dt,tR[k],CellHist[q][0],CellHist[q][1]);
 	    //FF[q]+=(std::exp(-currentTime*tR[k])/E[k]/tau[k]/tau[k])*higherOrderIntegral(dt,tR[k],CellHist[q][0],CellHist[q][1]);
+		
 	  }	
 	  FF[q]=FF0*FF[q];
 	  
 	}
 	else if (method==1) {
-	  FF[q]=0;
-	  Integration<double, dim>(dt, q, currentTime, History, Integral ,  tR , CellHist[q][0], CellHist[q][1]);	
+	  FF[q]=0; 
+	  //Integration<double, dim>(dt, q, currentIteration, currentTime, History,  Integral, tR,  CellHist[q][0], CellHist[q][1]);	     
+	  Integration<double, dim>(dt, q, currentIteration, currentTime, History,  Integral, tR,  CellHist[q][0], CellHist[q][1], HistoryCellTable);
 	  for (unsigned int k = 1; k < kcells; k++) {
-	    FF[q]+=(std::exp(-currentTime*tR[k])/E[k]/tau[k]/tau[k])*Integral[k];	  
+	    //FF[q]+=(std::exp(-currentTime*tR[k])/E[k]/tau[k]/tau[k])*Integral[k];
+	    //FF[q]+=(std::exp(-currentTime*tR[k])/E[k]/tau[k]/tau[k])*History[q]->integralOldCells[k];                                                                                                  
 	  }
-	  FF[q]=FF0*FF[q];
+	  FF[q]=FF0*FF[q]; 
 	}
+
+	 else if (method==2) {
+          FF[q]=0;
+	  for (unsigned int k = 1; k < kcells; k++) {
+            //FF[q]+=std::exp(-currentTime*tR[k])*HistoryCellTable[q][k];
+	    FF[q]+=HistoryCellTable[q][k]; 
+            //FF[q]+=(std::exp(-currentTime*tR[k])/E[k]/tau[k]/tau[k])*History[q]->integralOldCells[k];                                                                                                  
+          }
+        }
+
 	       	
 	R[i]+=(CC)*(1.0/dt)*fe_values.shape_value(i, q)*(phi[q]*(press[q]-press_conv[q]))*fe_values.JxW(q);
+	if (Peffective < 1.0) {
 	R[i]+=(DD)*fe_values.shape_value(i, q)*(phi[q]*press[q])*fe_values.JxW(q);
-	R[i]+=-fe_values.shape_value(i, q)*(phi[q]*FF[q])*fe_values.JxW(q);
+	R[i]+=-(FF0)*fe_values.shape_value(i, q)*(phi[q]*FF[q])*fe_values.JxW(q);
+	}
+	else {
+	  R[i]+=(DD)*fe_values.shape_value(i, q)*(phi[q]*press[q])*fe_values.JxW(q);
+	  R[i]+=-(DD0)*fe_values.shape_value(i, q)*(phi[q]*FF[q])*fe_values.JxW(q);
+	}
 	
 	for (unsigned int j = 0; j < dim; j++) {
 	  R[i] +=(1.0)*fe_values.shape_value(i, q)*(vel_j[q][j])*fe_values.JxW(q);
