@@ -31,7 +31,7 @@
 #define RampUp 6.94e-04 //Time at which Load is 15MPa
 
 //Final time
-#define TotalTime (ceil_3) // (Slightly more than the non-dimenisonal time 1)
+#define TotalTime (1.05) // (Slightly more than the non-dimenisonal time 1)
 #define tFactor 0.1*TotalTime
 
 //#define TotalTime (1000*TimeStep) // (5710*TimeStep)
@@ -65,3 +65,5 @@
 #define ttau {0, 9.86e+1, 2.51e+3, 6.22e+04} //0,tau1,tau2,tau3, ...
 #define tRatio {0, 876.71, 34.37, 1.39}// 0, 86400/tau1, 86400/tau2, ......
 #define method 2
+
+

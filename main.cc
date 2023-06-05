@@ -78,7 +78,7 @@ namespace phaseField1
     void output_results (const unsigned int increment);
     void output_results_txt (const unsigned int increment,const double time);
     void storeHistory (const unsigned int increment,const double time, const double tR[], const double eC[], const double tauC[], const double Peffective);
-    double Phi_average (const unsigned int increment, const double time);
+    double Phi_average (const unsigned int increment, const double time, const double loadTop);
     Triangulation<dim>                        triangulation;
     FESystem<dim>                             fe;
     DoFHandler<dim>                           dof_handler;
@@ -324,78 +324,22 @@ namespace phaseField1
 
   }
   
-  /*
-  //Solve
-  template <int dim>
-  void phaseField<dim>::solveIteration(){
-    TimerOutput::Scope t(computing_timer, "solve");
-    //LA::MPI::Vector completely_distributed_solution (locally_owned_dofs, mpi_communicator);
-    //Direct solver MUMPS
-
-    /*
-    SolverControl           cn(1000,1.0e-12);
-    SolverCG<>              cg (cn);
-    cg.solve (system_matrix, dU, system_rhs,
-              PreconditionIdentity()); 
-    if ((currentIteration==0)&&(currentIncrement==1)){
-      constraints.distribute (dU);
-    }
-    else{
-      constraints2.distribute (dU);
-    }
-
-    std::cout << "   " << cn.last_step()
-              << " CG iterations needed to obtain convergence."
-	              << std::endl;
-    */
-
-    /*
-     SparseDirectUMFPACK A_direct;
-     A_direct.initialize(system_matrix);
-     A_direct.vmult(dU, system_rhs);
-     if ((currentIteration==0) ){
-       constraints.distribute (dU);
-     }
-     else{
-      constraints2.distribute (dU);
-     }
-       
-  }*/
-  
-                                                                                                                                                                                                   
+                                                                                                                                                                                                 
   //Solve                                                                                                                                                                                                
   template <int dim>                                                                                                                                                                                     
   void phaseField<dim>::solveIteration(unsigned int currentIncrement){                                                                                                                                                                
     TimerOutput::Scope t(computing_timer, "solve");                                                                                                                                                      
-    //LA::MPI::Vector completely_distributed_solution (locally_owned_dofs, mpi_communicator);                                                                                                            
-    //Direct solver MUMPS
 
-    if (0) {
-    SolverControl           cn(1000,1.0e-12);                                                                                                                                                          
-    SolverCG<>              cg (cn);                                                                                                                                                                     
-    cg.solve (system_matrix, dU, system_rhs,                                                                                                                                                                            PreconditionIdentity());                                                                                                                                                                  
-    if ((currentIteration==0)&&(currentIncrement==1)){                                                                                                                                                   
-      constraints.distribute (dU);                                                                                                                                                                       
-    }                                                                                                                                                                                                    
-    else{                                                                                                                                                                                                       constraints2.distribute (dU);                                                                                                                                                                     
-    }                                                                                                                                                                                                                                                                                                                                                                                                           
-    std::cout << "   " << cn.last_step()                                                                                                                                                                 
-              << " CG iterations needed to obtain convergence."                                                                                                                                                                 << std::endl;                                                                                                                                                                           }
-    else {
-                                                                                                                                                                                                   
-     SparseDirectUMFPACK A_direct;                                                                                                                                                                       
-     A_direct.initialize(system_matrix);                                                                                                                                                                 
-     A_direct.vmult(dU, system_rhs);                                                                                                                                                                     
-     if ((currentIteration==0) ){                                                                                                                                                                        
-       constraints.distribute (dU);                                                                                                                                                                      
-     }                                                                                                                                                                                                   
-     else{                                                                                                                                                                                               
+    SparseDirectUMFPACK A_direct;                                                                                                                                                                       
+    A_direct.initialize(system_matrix);                                                                                                                                                                 
+    A_direct.vmult(dU, system_rhs);                                                                                                                                                                     
+    if ((currentIteration==0) ){                                                                                                                                                                        
+      constraints.distribute (dU);                                                                                                                                                                      
+    }                                                                                                                                                                                                   
+    else{                                                                                                                                                                                               
       constraints2.distribute (dU);                                                                                                                                                                      
-      }
-    }
-     
+    }         
   }
-
   
   /*  
   //Solve
@@ -441,9 +385,8 @@ namespace phaseField1
     Un=U;    
   }
 
-  //Calculate bubble Volume
   template <int dim>
-  double phaseField<dim>::Phi_average (const unsigned int ITR, const double time)  {
+  double phaseField<dim>::Phi_average (const unsigned int ITR, const double time, const double loadTop)  {
     TimerOutput::Scope t(computing_timer, "bubbleVolume");
     const QGauss<dim>  quadrature_formula(FEOrder+1);
     //   const QGauss<dim-1> face_quadrature_formula (2);
@@ -484,7 +427,7 @@ namespace phaseField1
     std::ofstream myfile("file.txt", std::ofstream::out | std::ofstream::app);
     if (myfile.is_open())
       {
-	myfile<<ITR<<" "<<time<<" "<<averagePhi<<" "<<averagePeff<<"\n";
+	myfile<<ITR<<" "<<time<<" "<<averagePhi<<" "<<averagePeff<<" "<<loadTop<<"\n";
 	//myfile << "This is another line.\n";
 	myfile.close();
       }
@@ -791,12 +734,13 @@ namespace phaseField1
       if (currentTime <= RampUp ){
 	deltaLoad = dt/RampUp;
 	Load +=deltaLoad;
+	if (Load > 1.0) Load = 1.0;
       }
       else {
 	deltaLoad=0;
-	pcout << "Load is : " <<Load<<std::endl;
-	
+	pcout << "Load is : " <<Load<<std::endl;	
       }
+
       applyBoundaryConditions(currentIncrement,currentTime,deltaLoad);
 
       double tR[]=tRatio;
@@ -814,7 +758,7 @@ namespace phaseField1
       }
       
       if (NSTEP%PSTEPS==0) {
-	Peffective=Phi_average (currentIncrement,currentTime);
+	Peffective=Phi_average (currentIncrement,currentTime,Load);
       }
       
       storeHistory(currentIncrement,currentTime,tR,eC,tauC,Peffective);
