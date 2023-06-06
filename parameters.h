@@ -12,8 +12,8 @@
 
 //time step controls
 //dt 
-#define TimeStep 1.0e-7
-#define timeFactor 0.001
+#define TimeStep 1.0e-8
+#define timeFactor 0.0005
 #define maxdt 1.0e-4
 
 //Series of time step size
@@ -28,7 +28,7 @@
 #define ceil_2 1.16e-1
 #define ceil_3 1.16e-0
 
-#define RampUp 6.94e-04 //Time at which Load is 15MPa
+#define RampUp (0.00069444444) //Time at which Load is 15MPa
 
 //Final time
 #define TotalTime (1.05) // (Slightly more than the non-dimenisonal time 1)
@@ -65,5 +65,4 @@
 #define ttau {0, 9.86e+1, 2.51e+3, 6.22e+04} //0,tau1,tau2,tau3, ...
 #define tRatio {0, 876.71, 34.37, 1.39}// 0, 86400/tau1, 86400/tau2, ......
 #define method 2
-
 

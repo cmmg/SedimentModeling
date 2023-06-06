@@ -714,7 +714,7 @@ namespace phaseField1
     	  << triangulation.get_vertices()[0]
     	  << std::endl;
 
-    double deltaLoad = 0, Load = 0;
+    double deltaLoad = 0, Load = 0, deltaOld = 0;
     Peffective=0;
     // while (currentTime<totalTime) {
     for (currentTime=0; currentTime<totalTime; currentTime+=dt){
@@ -731,10 +731,14 @@ namespace phaseField1
       //currentTime+=dt;
 
       
-      if (currentTime <= RampUp ){
+      if (currentTime <= RampUp ){	
 	deltaLoad = dt/RampUp;
+	deltaOld=deltaLoad;
 	Load +=deltaLoad;
-	if (Load > 1.0) Load = 1.0;
+	if (Load > 1.0) {
+	  deltaLoad= Load - 1.0;
+	  Load = Load-deltaOld+deltaLoad;
+	}
       }
       else {
 	deltaLoad=0;
