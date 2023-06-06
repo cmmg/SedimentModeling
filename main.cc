@@ -14,7 +14,7 @@
 //#include "include/historyclass.h"
 
 //#include "include/mechanics.h"
-//#include "include/writ>Solutions.h"
+//#include "include/writeSolutions.h"
 
 
 //Namespace
@@ -67,7 +67,6 @@ namespace phaseField1
     std::vector<std::vector<std::vector<double>>> HistoryTable;
     std::vector<std::vector<std::vector<double>>> IntegralTable;
     double Peffective;
- 
    private:
     void applyBoundaryConditions(const unsigned int increment, const double time, const double deltaLoad);
     void setup_system ();
@@ -399,21 +398,28 @@ namespace phaseField1
   
 
     std::vector<Vector<double> > quadSolutions;
+    std::vector< std::vector< Tensor< 1, dim, double >>> quadSolutionsGrad ;
+
     for (unsigned int q=0; q<n_q_points; ++q){
       quadSolutions.push_back(dealii::Vector<double>(DIMS)); //3 since there are three degrees of freedom per cell (phi,eta,c)
+      quadSolutionsGrad.push_back(std::vector< Tensor< 1, dim, double >>(DIMS));
+
     }
   
     typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
   
-    double averagePhi=0,  averagePeff=0;;
+    double averagePhi=0,  averagePeff=0, averageGradVs=0;
    
     for (;cell!=endc; ++cell) {
       if (cell->is_locally_owned()) {
 	fe_values.reinit(cell);
 	fe_values.get_function_values(Un, quadSolutions);
+	fe_values.get_function_gradients(Un,quadSolutionsGrad);	
+
 	for (unsigned int q=0; q<n_q_points; ++q) {
 	  averagePhi+= (quadSolutions[q][0])*fe_values.JxW(q);
 	  averagePeff+= (quadSolutions[q][2])*fe_values.JxW(q);
+	  averageGradVs+=(quadSolutionsGrad[q][1][0])*fe_values.JxW(q);
 	}
       }
       //++t_cell;
@@ -425,12 +431,10 @@ namespace phaseField1
     
     //std::ofstream myfile ("file.txt");
     std::ofstream myfile("file.txt", std::ofstream::out | std::ofstream::app);
-    if (myfile.is_open())
-      {
-	myfile<<ITR<<" "<<time<<" "<<averagePhi<<" "<<averagePeff<<" "<<loadTop<<"\n";
-	//myfile << "This is another line.\n";
-	myfile.close();
-      }
+    if (myfile.is_open()) {
+      myfile<<ITR<<" "<<time<<" "<<averagePhi<<" "<<averagePeff<<" "<<averageGradVs<<" "<<loadTop<<"\n";	
+      myfile.close();
+    }
     else pcout << "Unable to open file";
 
     // totalBubbleVolume=volumeTotal;
@@ -606,7 +610,6 @@ namespace phaseField1
     }
 
     double checkPressure =0 ;
-    bool firstLine = true;
     for (;cell!=endc; ++cell) {
       const std::string filename = ("Cell-" +
 				    Utilities::int_to_string (cell->active_cell_index(), 2) );      

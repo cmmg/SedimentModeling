@@ -51,9 +51,9 @@
 #define ALPHA (1.0/0.1545)// 1/mb
 #define AA (3.7034e+02)    //
 #define BB (2.1073e-05)    //
-#define CC0 (2.318e+06)    //
-#define DD0 (2.0029e+11)    //
-#define FF0 (1.7305e+16)    //
+#define CC0 (2.318e+06)
+#define DD0 (2.0029e+11)
+#define FF0 (1.7305e+16)
 
 //domain size
 #define problemLength (1.0) 
@@ -61,7 +61,7 @@
 
 //Kelvin Cells
 #define kcells 4  //no. of kelvin cells + 1
-#define EE { 0.82*0.1545*3.38e+9, 0.82*0.1545*1.32e+9, 0.82*0.1545*9.15e+9, 0.82*0.1545*6.43e+9} //E0,E1,E2,.......
+#define EE { 0.8*0.1545*3.38e+9, 0.8*0.1545*1.32e+9, 0.8*0.1545*9.15e+9, 0.8*0.1545*6.43e+9} //E0,E1,E2,.......
 #define ttau {0, 9.86e+1, 2.51e+3, 6.22e+04} //0,tau1,tau2,tau3, ...
 #define tRatio {0, 876.71, 34.37, 1.39}// 0, 86400/tau1, 86400/tau2, ......
 #define method 2
