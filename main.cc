@@ -647,7 +647,8 @@ namespace phaseField1
 	    HistoryTable[cell->active_cell_index()][q][k]+=(0.5*timeSize*(f0+f1));
 	    bool checkNan = std::isnan(HistoryTable[cell->active_cell_index()][q][k] ) ;
 	    bool checkInf = std::isinf(HistoryTable[cell->active_cell_index()][q][k] ) ;
-	    if (Peffective >= 1.0 ) {
+	    //if (Peffective >= cutOff) {
+	    if (quadSolutions[q][DIMS-1]>= cutOff) {
 	      IntegralTable[cell->active_cell_index()][q][k]=(1-std::exp(-time*tR[k]))*stress[cell->active_cell_index()][q][1][last-1]/eC[k]/tauC[k] ;			    
 	    }
 
