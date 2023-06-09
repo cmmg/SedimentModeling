@@ -14,7 +14,7 @@
 //dt 
 #define TimeStep 1.0e-8
 #define timeFactor 0.0005
-#define maxdt 1.0e-4
+#define maxdt 5.0e-5 //1.0e-4
 
 //Series of time step size
 #define TimeStep_0 5.0e-5
@@ -49,7 +49,7 @@
 
 //parameters
 #define ALPHA (1.0/0.1545)// 1/mb
-#define AA (3.7034e+02)    //
+#define AA (3.70345e+16)    //
 #define BB (2.1073e-05)    //
 #define CC0 (2.318e+06)
 #define DD0 (2.0029e+11)
@@ -61,9 +61,9 @@
 
 //Kelvin Cells
 #define kcells 4  //no. of kelvin cells + 1
-#define EE { 0.82*0.1545*3.38e+9, 0.82*0.1545*1.32e+9, 0.82*0.1545*9.15e+9, 0.82*0.1545*6.43e+9} //E0,E1,E2,.......
-#define ttau {0, 0.5*9.86e+1, 0.5*2.51e+3, 0.5*6.22e+04} //0,tau1,tau2,tau3, ...
-#define tRatio {0, 876.71/0.5, 34.37/0.5, 1.39/0.5}// 0, 86400/tau1, 86400/tau2, ......
+#define EE { 1.12*3.3766e+9, 1.12*1.3191e+9, 1.12*9.1481e+9, 1.12*6.4270e+9} //E0,E1,E2,.......
+#define ttau {0, 1.0e+2, 2.6835e+3, 7.199e+04} //0,tau1,tau2,tau3, ...
+#define tRatio {0, 864.71, 32.1969, 1.2001}// 0, 86400/tau1, 86400/tau2, ......
 #define method 2
 
 

@@ -649,7 +649,7 @@ namespace phaseField1
 	    bool checkInf = std::isinf(HistoryTable[cell->active_cell_index()][q][k] ) ;
 	    //if (Peffective >= cutOff) {
 	    if (quadSolutions[q][DIMS-1]>= cutOff) {
-	      IntegralTable[cell->active_cell_index()][q][k]=(1-std::exp(-time*tR[k]))*stress[cell->active_cell_index()][q][1][last-1]/eC[k]/tauC[k] ;			    
+	      IntegralTable[cell->active_cell_index()][q][k]=(1-std::exp(-time*tR[k]))*stress[cell->active_cell_index()][q][1][last-1]/eC[k]/tauC[k] ;
 	    }
 
 	    else  {
@@ -770,7 +770,7 @@ namespace phaseField1
       }
       
       storeHistory(currentIncrement,currentTime,tR,eC,tauC,Peffective);
-     pcout << std::endl;
+      pcout << std::endl;
      
     }
 

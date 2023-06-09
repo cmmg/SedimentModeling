@@ -330,7 +330,7 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
 	//if (Peffective >= cutOff) {
 	if (press_conv[q] >= cutOff) {
 	  R[i]+=(DD)*fe_values.shape_value(i, q)*(phi[q]*press[q])*fe_values.JxW(q);
-	  R[i]+=-(DD0)*fe_values.shape_value(i, q)*(phi[q]*FF[q])*fe_values.JxW(q);	  
+	  R[i]+=-(DD0)*fe_values.shape_value(i, q)*(phi[q]*FF[q])*fe_values.JxW(q);
 	}
 	else {
 	  R[i]+=(DD)*fe_values.shape_value(i, q)*(phi[q]*press[q])*fe_values.JxW(q);
