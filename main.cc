@@ -35,6 +35,12 @@ namespace phaseField1
 	values(3)=0.0; //order
     }
   };
+
+  template <int dim>
+  struct ExportVariables{
+    double Time;
+    double Location, Porosity,Velocity,Eff_Pressure;
+  };
   
   template <int dim>
   class phaseField{
@@ -51,6 +57,9 @@ namespace phaseField1
     void solve ();
     void refine_grid ();
     void output_results (const unsigned int increment);
+    void output_results_txt (const unsigned int increment,const double time);
+    double Phi_average (const unsigned int increment, const double time, const double loadTop);
+
     Triangulation<dim>                        triangulation;
     FESystem<dim>                             fe;
     DoFHandler<dim>                           dof_handler;
@@ -67,6 +76,9 @@ namespace phaseField1
     unsigned int currentIncrement, currentIteration;
     double totalTime, currentTime, dt;
     std::vector<std::string> nodal_solution_names; std::vector<DataComponentInterpretation::DataComponentInterpretation> nodal_data_component_interpretation;
+
+    std::map<typename DoFHandler<dim>::active_cell_iterator,std::vector<double> > Export;
+
 
   };
 
@@ -158,6 +170,7 @@ namespace phaseField1
     sparsity_pattern.copy_from(dsp);
     system_matrix.reinit (sparsity_pattern);
   }
+
 
   //Setup                                                                                                                                  
 
@@ -337,6 +350,75 @@ namespace phaseField1
   }
 
   
+  //Output
+  template <int dim>
+  void phaseField<dim>::output_results_txt (const unsigned int cycle, const double time) {
+    TimerOutput::Scope t(computing_timer, "output_text");
+    //FEValues<dim> fe_values (fe);
+    const QGauss<dim>  quadrature_formula(FEOrder+1);
+    FEValues<dim> fe_values (fe, quadrature_formula,
+                             update_values    |  update_gradients |
+                             update_quadrature_points |update_JxW_values);
+    unsigned int dofs_per_cell= fe_values.dofs_per_cell;
+    std::vector<unsigned int> local_dof_indices (dofs_per_cell);
+
+    const std::string filename = ("T-" +
+                                Utilities::int_to_string (cycle, 2) );
+
+   
+    typename DoFHandler<dim>::active_cell_iterator cell = dof_handler.begin_active(), endc = dof_handler.end();
+   
+    for (;cell!=endc; ++cell) {
+      if (cell->is_locally_owned()) {
+	fe_values.reinit(cell);
+	cell->get_dof_indices (local_dof_indices);
+	//std::cout <<"dof per cell is " << dofs_per_cell << " vertices per cell is " << GeometryInfo<dim>::vertices_per_cell << std::endl; 
+
+	Export[cell].push_back(time);
+	for (unsigned int ver=0; ver<1; ++ver) {
+	  Export[cell].push_back(cell->vertex(ver)[0]);
+	}
+	
+	for (unsigned int i=0; i<3; ++i) {
+	  const unsigned int ci = fe_values.get_fe().system_to_component_index(i).first - 0;   
+	  if (ci==0) {
+	    //add phi
+	    Export[cell].push_back(Un(local_dof_indices[i]));
+	  }
+	  
+	  if (ci==1) {
+	    //add vel
+	    Export[cell].push_back(Un(local_dof_indices[i]));
+	  }
+
+	  if (ci==2) {
+	    //add eff press
+	    Export[cell].push_back(Un(local_dof_indices[i]));	    
+	  }
+	}
+      }
+    }
+
+    typename std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector<double>  >::iterator it = Export.begin();	
+    std::ofstream myfile((filename + ".text").c_str(), std::ofstream::out | std::ofstream::app);
+    if (myfile.is_open()) {
+      myfile<<"Tim "<<"Pos "<<"Phi "<<"Vel "<<"Peff "<<std::endl ;
+      for(; it != Export.end(); it++) {
+	int counter=0; 
+	for(auto it2 = it->second.begin(); it2 != it->second.end(); ++it2) {
+	  myfile<<" "<<std::setprecision (18) <<*it2;
+	  counter=counter+1;
+	}
+	myfile<<std::endl ;
+      }
+      myfile.close();
+    }
+    else pcout << "Unable to open file";
+    Export.clear();
+
+  }
+
+  
 
   
   //Solve problem
@@ -380,6 +462,7 @@ namespace phaseField1
      int NSTEP=(currentTime/dt);
      if (NSTEP%PSTEPS==0) {
        output_results(currentIncrement);
+       output_results_txt(currentIncrement,currentTime);
        //writeSolutionsToFile(Un, tag);	
      }
      pcout << std::endl;
