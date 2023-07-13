@@ -379,7 +379,7 @@ namespace phaseField1
 	  Export[cell].push_back(cell->vertex(ver)[0]);
 	}
 	
-	for (unsigned int i=0; i<3; ++i) {
+	for (unsigned int i=0; i<4; ++i) {
 	  const unsigned int ci = fe_values.get_fe().system_to_component_index(i).first - 0;   
 	  if (ci==0) {
 	    //add phi
@@ -395,6 +395,11 @@ namespace phaseField1
 	    //add eff press
 	    Export[cell].push_back(Un(local_dof_indices[i]));	    
 	  }
+
+	  if (ci==3) {
+	     //add order                                                                                                                                                                               
+            Export[cell].push_back(Un(local_dof_indices[i]));
+	  }	  
 	}
       }
     }
@@ -402,7 +407,7 @@ namespace phaseField1
     typename std::map<typename DoFHandler<dim>::active_cell_iterator, std::vector<double>  >::iterator it = Export.begin();	
     std::ofstream myfile((filename + ".text").c_str(), std::ofstream::out | std::ofstream::app);
     if (myfile.is_open()) {
-      myfile<<"Tim "<<"Pos "<<"Phi "<<"Vel "<<"Peff "<<std::endl ;
+      myfile<<"Tim "<<"Pos "<<"Phi "<<"Vel "<<"Peff "<<"PhaseF "<<std::endl ;
       for(; it != Export.end(); it++) {
 	int counter=0; 
 	for(auto it2 = it->second.begin(); it2 != it->second.end(); ++it2) {

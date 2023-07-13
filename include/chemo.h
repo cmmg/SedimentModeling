@@ -92,7 +92,7 @@ void residualForChemo(FEValues<dim>& fe_values, unsigned int DOF,  const typenam
 
       else if (ck==3) {
 	//adding residula for the order parameter
-	R[i]+=fe_values.shape_value(i, q)*(ORDER[q]-0.5*(1.0+std::tanh(200.0*(Vel*currentTime-qPoint[0]))))*fe_values.JxW(q);
+	R[i]+=fe_values.shape_value(i, q)*(ORDER[q]-0.5*(1.0+std::tanh(smoothness*(Vel*currentTime-qPoint[0]))))*fe_values.JxW(q);
 	
       }
     }

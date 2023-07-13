@@ -35,3 +35,7 @@
 
 //domain size
 #define problemLength 0.9302
+
+
+//Slope of tanh function
+#define smoothness 200.0
